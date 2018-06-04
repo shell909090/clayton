@@ -23,7 +23,17 @@ class Cert(models.Model):
     issuer = models.ForeignKey('self', null=True)
     usage = models.CharField(max_length=30)
     vtype = models.IntegerField()
+    keyid = models.CharField(max_length=100)
     ca = models.BooleanField()
     alternative = models.TextField(null=True)
-    cert = models.TextField()
+    certfile = models.TextField()
     key = models.ForeignKey('PubKey', null=True)
+
+    class Meta:
+        unique_together = (
+            ("issuer", "sn"),
+            ("sub", "keyid"),
+        )
+
+    def __str__(self):
+        return '%s %s' % (self.sn, self.sub)
