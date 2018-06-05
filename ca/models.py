@@ -10,13 +10,15 @@ class PubKey(models.Model):
     pub = models.TextField(null=True)
     key = models.TextField()
 
+    def certs(self):
+        return Cert.objects.filter(key=self).count()
+
 
 class Cert(models.Model):
     dgst = models.CharField(max_length=33, primary_key=True)
     status = models.IntegerField()
     sn = models.CharField(max_length=30)
     sub = models.CharField(max_length=200)
-    email = models.CharField(max_length=30)
     cn = models.CharField(max_length=100)
     notbefore = models.DateTimeField()
     notafter = models.DateTimeField()
@@ -32,7 +34,6 @@ class Cert(models.Model):
     class Meta:
         unique_together = (
             ("issuer", "sn"),
-            ("sub", "keyid"),
         )
 
     def __str__(self):

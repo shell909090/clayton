@@ -14,10 +14,55 @@ from django import forms
 from . import models
 
 
-class CertForm(forms.ModelForm):
+class ImpCertForm(forms.ModelForm):
     certchain = forms.FileField()
     prikey = forms.FileField()
 
     class Meta:
         model = models.Cert
         fields = ['certchain', 'prikey']
+
+
+class ReqForm(forms.ModelForm):
+    cn = forms.CharField(max_length=50)
+    country = forms.CharField(max_length=3, required=False)
+    province = forms.CharField(max_length=10, required=False)
+    city = forms.CharField(max_length=30, required=False)
+    org = forms.CharField(max_length=50, required=False)
+    email = forms.CharField(max_length=50, required=False)
+    ou = forms.CharField(max_length=50, required=False)
+    alternative = forms.CharField(max_length=200, required=False)
+    vtype = forms.CharField(max_length=3, required=False)
+    server = forms.BooleanField(required=False)
+    ca = forms.BooleanField(required=False)
+    selfsign = forms.BooleanField(required=False)
+    days = forms.CharField(max_length=3, required=False)
+    mngcrl = forms.BooleanField(required=False)
+
+    def get_subj(self):
+        subj = {}
+        mapping = [
+            ('CN', 'cn'), ('C', 'country'), ('ST', 'province'), ('L', 'city'),
+            ('O', 'org'), ('OU', 'ou'), ('emailAddress', 'email')]
+        for n, m in mapping:
+            if self.cleaned_data[m]:
+                subj[n] = self.cleaned_data[m].strip()
+        return ''.join(['/%s=%s' % (k, v) for k, v in subj.items()]) + '/'
+
+
+class SignForm(forms.Form):
+    req = forms.FileField()
+    days = forms.CharField(max_length=3, required=False)
+
+
+# serverAuth             SSL/TLS Web Server Authentication.
+# clientAuth             SSL/TLS Web Client Authentication.
+# codeSigning            Code signing.
+# emailProtection        E-mail Protection (S/MIME).
+# timeStamping           Trusted Timestamping
+# OCSPSigning            OCSP Signing
+# ipsecIKE               ipsec Internet Key Exchange
+# msCodeInd              Microsoft Individual Code Signing (authenticode)
+# msCodeCom              Microsoft Commercial Code Signing (authenticode)
+# msCTLSign              Microsoft Trust List Signing
+# msEFS                  Microsoft Encrypted File System

@@ -1,7 +1,7 @@
 {% extends 'ca/base.html' %}
 {% load render_table from django_tables2 %}
 
-{% block title %}list cert{% endblock %}
+{% block title %}list key{% endblock %}
 
 {% block body %}
 {% render_table tab %}
@@ -14,7 +14,7 @@
     <span class="caret"></span>
   </a>
   <ul class="dropdown-menu">
-    <li><a href="{% url 'ca:import_pem' %}">import pem</a></li>
+    <li><a href="{% url 'ca:build_key' %}">build key</a></li>
   </ul>
 </li>
 {% endblock %}

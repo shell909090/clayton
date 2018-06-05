@@ -6,7 +6,7 @@ import forms
 
 
 class CertAdmin(admin.ModelAdmin):
-    form = forms.CertForm
+    form = forms.ImpCertForm
     list_display = ('dgst', 'sn', 'sub', 'cn',
                     'notbefore', 'notafter')
     list_display_links = None
