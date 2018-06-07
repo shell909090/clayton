@@ -1,3 +1,5 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
 from django.db import models
@@ -23,13 +25,10 @@ class Cert(models.Model):
     notbefore = models.DateTimeField()
     notafter = models.DateTimeField()
     issuer = models.ForeignKey('self', null=True)
-    usage = models.CharField(max_length=30)
-    vtype = models.IntegerField()
     keyid = models.CharField(max_length=100)
-    ca = models.BooleanField()
     alternative = models.TextField(null=True)
     certfile = models.TextField()
-    key = models.ForeignKey('PubKey', null=True)
+    key = models.ForeignKey('PubKey', null=True, on_delete=models.DO_NOTHING)
 
     class Meta:
         unique_together = (
@@ -37,4 +36,4 @@ class Cert(models.Model):
         )
 
     def __str__(self):
-        return '%s %s' % (self.sn, self.sub)
+        return self.dgst

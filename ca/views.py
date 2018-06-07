@@ -1,12 +1,18 @@
+import binascii
+
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 
 from django_tables2 import RequestConfig
+from OpenSSL import crypto
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
 
 import cert
+import crypt
 from .models import PubKey, Cert
-from .forms import ImpCertForm, ReqForm, SignForm
+from .forms import ImpKeyForm, ImpCertForm, ReqForm, SignForm
 from .tables import KeyTable, CertTable
 
 
@@ -14,28 +20,28 @@ from .tables import KeyTable, CertTable
 
 
 def list_key(request, dgst):
-    keys = PubKey.objects
+    q = PubKey.objects
     if dgst:
-        keys = keys.filter(dgst=dgst)
-    tab = KeyTable(keys.all())
+        q = q.filter(dgst=dgst)
+    tab = KeyTable(q.all())
     RequestConfig(request).configure(tab)
     return render(request, 'ca/list_key.html', {'tab': tab})
 
 
-# TODO: size?
 def build_key(request):
-    pri = cert.create_key()
-    pub = cert.key_extract_pub(pri)
-    dgst = cert.hexdigest(pri)[-16:]
-    key = PubKey(dgst=dgst, pub=pub, key=pri)
-    key.save()
+    pkey = crypt.generate_key()  # TODO: size?
+    strkey = crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey)
+    strpub = crypto.dump_publickey(crypto.FILETYPE_PEM, pkey)
+    dgst = crypt.hexdigest(strpub)[-16:].upper()
+    okey = PubKey(dgst=dgst, pub=strpub, key=strkey)
+    okey.save()
     return HttpResponseRedirect(
         reverse('ca:list_key', kwargs={'dgst': ''}))
 
 
 def delete_key(request, dgst):
-    key = PubKey.objects.get(dgst=dgst)
-    key.delete()
+    okey = PubKey.objects.get(dgst=dgst)
+    okey.delete()
     return HttpResponseRedirect(
         reverse('ca:list_key', kwargs={'dgst': ''}))
 
@@ -48,22 +54,67 @@ def build_req(request, dgst):
     if not form.is_valid():
         return render(request, 'ca/import_req.html', {'form': form})
 
-    key = PubKey.objects.get(dgst=dgst)
-    if form.cleaned_data['selfsign']:
-        subj = form.get_subj()
-        crtfile = cert.create_cert_selfsign(
-            key.key, subj,
-            form.cleaned_data.get('days') or '3650')
-        imp_crt(key.key, crtfile)
-        return HttpResponseRedirect(
-            reverse('ca:list_cert', kwargs={'dgst': ''}))
+    okey = PubKey.objects.get(dgst=dgst)
+    # if form.cleaned_data['selfsign']:
+    #     subj = form.get_subj()
+    #     crtfile = cert.create_cert_selfsign(
+    #         okey.key, subj,
+    #         form.cleaned_data.get('days') or '3650')
+    #     imp_crt(okey.key, crtfile)
+    #     return HttpResponseRedirect(
+    #         reverse('ca:list_cert', kwargs={'dgst': ''}))
 
-    subj = form.get_subj()
-    reqfile = cert.create_req(
-        key.key, subj,
-        form.cleaned_data.get('days') or '3650')
-    resp = HttpResponse(reqfile, content_type="application/x-pem-file")
-    resp['Content-Disposition'] = 'inline; filename=%s.csr' % key.dgst
+    pkey = crypto.load_privatekey(crypto.FILETYPE_PEM, okey.key)
+    req = crypt.generate_req(pkey, form.cleaned_data)
+
+    # TODO:
+    # if form.cleaned_data['selfsign']:
+    #     cert = crypt.selfsign_cert(req, pkey, serial='')
+
+    strreq = crypto.dump_certificate_request(crypto.FILETYPE_PEM, req)
+    resp = HttpResponse(strreq, content_type="application/x-pem-file")
+    resp['Content-Disposition'] = 'inline; filename=%s.csr' % okey.dgst
+    return resp
+
+
+def imp_key(strkey):
+    pkey = crypto.load_privatekey(crypto.FILETYPE_PEM, strkey)
+    strpub = crypto.dump_publickey(crypto.FILETYPE_PEM, pkey)
+    dgst = crypt.hexdigest(strpub)[-16:].upper()
+    q = PubKey.objects.filter(dgst=dgst)
+    if q.count() == 0:
+        okey = PubKey(dgst, pub=strpub, key=strkey)
+        okey.save()
+    else:
+        okey = q.get()
+    return okey
+
+
+def import_key(request):
+    if request.method != 'POST':
+        form = ImpKeyForm()
+        return render(request, 'ca/import_pem.html', {'form': form})
+    form = ImpKeyForm(request.POST, request.FILES)
+    if not form.is_valid():
+        return render(request, 'ca/import_pem.html', {'form': form})
+
+    strkey = form.cleaned_data['prikey'].read()
+    imp_key(strkey)
+    return HttpResponseRedirect(
+        reverse('ca:list_key', kwargs={'dgst': ''}))
+
+
+def export_key(request, dgst):
+    okey = PubKey.objects.get(dgst=dgst)
+    resp = HttpResponse(okey.key, content_type="application/x-pem-file")
+    resp['Content-Disposition'] = 'inline; filename=%s.csr' % okey.dgst
+    return resp
+
+
+def export_pubkey(request, dgst):
+    okey = PubKey.objects.get(dgst=dgst)
+    resp = HttpResponse(okey.pub, content_type="application/x-pem-file")
+    resp['Content-Disposition'] = 'inline; filename=%s.csr' % okey.dgst
     return resp
 
 
@@ -89,34 +140,30 @@ def cert_detail(request, dgst):
     pass
 
 
-def imp_crt(key, crt):
-    dgst = cert.hexdigest(crt)[-16:]
-    if Cert.objects.filter(dgst=dgst).count():
-        return
+def imp_cert(strpem, okey=None):
+    dgst = crypt.hexdigest(strpem)[-16:].upper()
+    q = Cert.objects.filter(dgst=dgst)
+    if q.count() != 0:
+        ocert = q.get()
+        return ocert
 
-    k = None
-    kdgst = cert.hexdigest(key)[-16:]
-    if key:
-        q = PubKey.objects.filter(dgst=kdgst)
-        if q.count() == 0:
-            k = PubKey(kdgst, key=key)
-            k.save()
-        else:
-            k = q.get()
-
-    attrs = cert.read_cert(crt)
+    cn, keyid, alternative, authkeyid = crypt.read_cert(strpem)
 
     issuer = None
-    q = Cert.objects.filter(sub=attrs['issuer'], keyid=attrs['authkeyid'])
-    if q.count():
-        issuer = q.get()
-    c = Cert(
-        dgst=dgst, status=0, sn=attrs['sn'],
-        sub=attrs['subject'], cn=attrs['CN'],
-        notbefore=attrs['notbefore'], notafter=attrs['notafter'],
-        issuer=issuer, usage='', vtype=0, keyid=attrs['subkeyid'],
-        ca=attrs['ca'], alternative='', certfile=crt, key=k)
-    c.save()
+    if authkeyid:
+        q = Cert.objects.filter(keyid=authkeyid)
+        if q.count() != 0:
+            issuer = q.get()
+
+    sn = hex(cert.serial_number)[2:].upper().strip('L')
+    ocert = Cert(
+        dgst=dgst, status=0, sn=sn,
+        sub=crypt.gen_sub_name_str(cert.subject), cn=cn,
+        notbefore=cert.not_valid_before, notafter=cert.not_valid_after,
+        issuer=issuer, keyid=keyid, alternative=alternative,
+        certfile=strpem, key=okey)
+    ocert.save()
+    return ocert
 
 
 def import_pem(request):
@@ -128,14 +175,16 @@ def import_pem(request):
         return render(request, 'ca/import_pem.html', {'form': form})
 
     certchain = form.cleaned_data['certchain'].read()
-    prikey = form.cleaned_data['prikey'].read()
-    prikey, crts = cert.verify(prikey, certchain)
-    for crt in crts[:1:-1]:
-        imp_crt(None, crt)
-    imp_crt(prikey, crts[0])
-    dgst = cert.hexdigest(crts[0])[-16:]
+    strkey = form.cleaned_data['prikey'].read()
+    strpems = list(crypt.split_pems(certchain))
+    crypt.verify(strpems, strkey)
+
+    okey = imp_key(strkey)
+    for strpem in strpems[::-1]:
+        imp_cert(strpem)
+    imp_cert(strpems[0], okey)
     return HttpResponseRedirect(
-        reverse('ca:list_cert', kwargs={'dgst': dgst}))
+        reverse('ca:list_cert', kwargs={'dgst': ''}))
 
 
 def delete_cert(request, dgst):
@@ -181,11 +230,6 @@ def export_pem(request, dgst):
 
 
 def export_der(request, dgst):
-    pass
-
-
-# password?
-def export_key(request, dgst):
     pass
 
 

@@ -14,6 +14,10 @@ from django import forms
 from . import models
 
 
+class ImpKeyForm(forms.Form):
+    prikey = forms.FileField()
+
+
 class ImpCertForm(forms.ModelForm):
     certchain = forms.FileField()
     prikey = forms.FileField()
@@ -23,7 +27,7 @@ class ImpCertForm(forms.ModelForm):
         fields = ['certchain', 'prikey']
 
 
-class ReqForm(forms.ModelForm):
+class ReqForm(forms.Form):
     cn = forms.CharField(max_length=50)
     country = forms.CharField(max_length=3, required=False)
     province = forms.CharField(max_length=10, required=False)
@@ -32,12 +36,23 @@ class ReqForm(forms.ModelForm):
     email = forms.CharField(max_length=50, required=False)
     ou = forms.CharField(max_length=50, required=False)
     alternative = forms.CharField(max_length=200, required=False)
-    vtype = forms.CharField(max_length=3, required=False)
-    server = forms.BooleanField(required=False)
+    usage = forms.ChoiceField(choices=(
+        ('', '--'),
+        ('serverAuth', 'SSL/TLS Web Server Authentication'),
+        ('clientAuth', 'SSL/TLS Web Client Authentication'),
+        ('codeSigning', 'Code signing'),
+        ('emailProtection', 'E-mail Protection (S/MIME)'),
+        ('timeStamping', 'Trusted Timestampin'),
+        ('OCSPSigning', 'OCSP Signin'),
+        ('ipsecIKE', 'ipsec Internet Key Exchang'),
+        ('msCodeInd', 'Microsoft Individual Code Signing (authenticode)'),
+        ('msCodeCom', 'Microsoft Commercial Code Signing (authenticode)'),
+        ('msCTLSign', 'Microsoft Trust List Signin'),
+        ('msEFS', 'Microsoft Encrypted File Syste'),
+    ), required=False)
     ca = forms.BooleanField(required=False)
     selfsign = forms.BooleanField(required=False)
     days = forms.CharField(max_length=3, required=False)
-    mngcrl = forms.BooleanField(required=False)
 
     def get_subj(self):
         subj = {}
@@ -53,16 +68,3 @@ class ReqForm(forms.ModelForm):
 class SignForm(forms.Form):
     req = forms.FileField()
     days = forms.CharField(max_length=3, required=False)
-
-
-# serverAuth             SSL/TLS Web Server Authentication.
-# clientAuth             SSL/TLS Web Client Authentication.
-# codeSigning            Code signing.
-# emailProtection        E-mail Protection (S/MIME).
-# timeStamping           Trusted Timestamping
-# OCSPSigning            OCSP Signing
-# ipsecIKE               ipsec Internet Key Exchange
-# msCodeInd              Microsoft Individual Code Signing (authenticode)
-# msCodeCom              Microsoft Commercial Code Signing (authenticode)
-# msCTLSign              Microsoft Trust List Signing
-# msEFS                  Microsoft Encrypted File System
