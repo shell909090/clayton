@@ -1,0 +1,100 @@
+{% extends 'ca/base.html' %}
+{% load render_table from django_tables2 %}
+
+{% block title %}key detail{% endblock %}
+
+{% block body %}
+<table class="table-striped table-condensed table-responsive" width="100%" style="table-layout: fixed;">
+  <tbody>
+    <tr>
+      <td width="10%">dgst</td>
+      <td>{{obj.dgst}}</td>
+    </tr>
+    <tr>
+      <td>type</td>
+      <td>{{p.type}}</td>
+    </tr>
+    <tr>
+      <td>size</td>
+      <td>{{p.size}}</td>
+    </tr>
+    {% if p.n %}
+    <tr>
+      <td>n</td>
+      <td style="word-wrap: break-word;">{{p.n}}</td>
+    </tr>
+    {% endif %}
+    {% if p.e %}
+    <tr>
+      <td>e</td>
+      <td style="word-wrap: break-word;">{{p.e}}</td>
+    </tr>
+    {% endif %}
+    {% if p.d %}
+    <tr>
+      <td>d</td>
+      <td style="word-wrap: break-word;">{{p.d}}</td>
+    </tr>
+    {% endif %}
+    {% if p.p %}
+    <tr>
+      <td>p</td>
+      <td style="word-wrap: break-word;">{{p.p}}</td>
+    </tr>
+    {% endif %}
+    {% if p.q %}
+    <tr>
+      <td>q</td>
+      <td style="word-wrap: break-word;">{{p.q}}</td>
+    </tr>
+    {% endif %}
+    {% if p.curve %}
+    <tr>
+      <td>curve</td>
+      <td>{{p.curve}}</td>
+    </tr>
+    {% endif %}
+    {% if p.x %}
+    <tr>
+      <td>x</td>
+      <td style="word-wrap: break-word;">{{p.x}}</td>
+    </tr>
+    {% endif %}
+    {% if p.y %}
+    <tr>
+      <td>y</td>
+      <td style="word-wrap: break-word;">{{p.y}}</td>
+    </tr>
+    {% endif %}
+    {% if p.private %}
+    <tr>
+      <td>private</td>
+      <td style="word-wrap: break-word;">{{p.private}}</td>
+    </tr>
+    {% endif %}
+  </tbody>
+</table>
+
+{% render_table tab %}
+{% endblock %}
+
+{% block nav_dropdown %}
+<li class="dropdown">
+  <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+    Ops
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu">
+    <li><a href="{% url 'ca:export_key' obj.dgst %}">export key</a></li>
+    <li><a href="{% url 'ca:export_pubkey' obj.dgst %}">export pubkey</a></li>
+    <li><a href="{% url 'ca:export_sshpub' obj.dgst %}">export sshpub</a></li>
+    <li><a href="{% url 'ca:build_req' obj.dgst %}">build req</a></li>
+    {% if rsa %}
+    <li><a href="{% url 'ca:encrypt' obj.dgst %}">encrypt</a></li>
+    <li><a href="{% url 'ca:decrypt' obj.dgst %}">decrypt</a></li>
+    {% endif %}
+    <li><a href="{% url 'ca:sign' obj.dgst %}">sign</a></li>
+    <li><a href="{% url 'ca:verify' obj.dgst %}">verify</a></li>
+  </ul>
+</li>
+{% endblock %}

@@ -6,7 +6,9 @@
 {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
 <form action="" method="POST">
   {% csrf_token %}
-  {{ form }}
+  <table class="table-striped table-condensed table-responsive">
+    {{ form }}
+  </table>
   <input type="submit" value="提交" />
 </form>
 {% endblock %}

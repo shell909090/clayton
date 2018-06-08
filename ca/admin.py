@@ -1,32 +1,32 @@
 from django.contrib import admin
 
 from .models import PubKey, Cert
-import cert
-import forms
+# import cert
+# import forms
 
 
-class CertAdmin(admin.ModelAdmin):
-    form = forms.ImpCertForm
-    list_display = ('dgst', 'sn', 'sub', 'cn',
-                    'notbefore', 'notafter')
-    list_display_links = None
-    actions = ['disable_cert', 'enable_cert', 'list_tokens',
-               'export_cert', 'export_key', 'export_p12',
-               'backup']
-    list_filter = ['status', ]
-    search_fields = ['domain', ]
+# class CertAdmin(admin.ModelAdmin):
+#     form = forms.ImpCertForm
+#     list_display = ('dgst', 'sn', 'sub', 'cn',
+#                     'notbefore', 'notafter')
+#     list_display_links = None
+#     actions = ['disable_cert', 'enable_cert', 'list_tokens',
+#                'export_cert', 'export_key', 'export_p12',
+#                'backup']
+#     list_filter = ['status', ]
+#     search_fields = ['domain', ]
 
-    def save_model(self, request, obj, form, change):
-        obj.certchain = form.cleaned_data['certchain'].read()
-        obj.prikey = form.cleaned_data['prikey'].read()
-        cert.verify(obj.prikey, obj.certchain)
-        attrs = cert.read_cert(obj.certchain)
-        for name in ['sn', 'subject', 'issuer', 'notbefore', 'notafter']:
-            setattr(obj, name, attrs[name])
-        obj.domain = attrs['CN']
-        obj.alternative = ''
-        obj.status = 0
-        super(CertAdmin, self).save_model(request, obj, form, change)
+#     def save_model(self, request, obj, form, change):
+#         obj.certchain = form.cleaned_data['certchain'].read()
+#         obj.prikey = form.cleaned_data['prikey'].read()
+#         cert.verify(obj.prikey, obj.certchain)
+#         attrs = cert.read_cert(obj.certchain)
+#         for name in ['sn', 'subject', 'issuer', 'notbefore', 'notafter']:
+#             setattr(obj, name, attrs[name])
+#         obj.domain = attrs['CN']
+#         obj.alternative = ''
+#         obj.status = 0
+#         super(CertAdmin, self).save_model(request, obj, form, change)
 
     # def disable_cert(self, request, queryset):
     #     for obj in queryset:
@@ -73,6 +73,6 @@ class CertAdmin(admin.ModelAdmin):
     #     return resp
 
 
-admin.site.register(Cert, CertAdmin)
+admin.site.register(Cert)
 
 admin.site.register(PubKey)

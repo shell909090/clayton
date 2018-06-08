@@ -8,12 +8,24 @@ from django.db import models
 
 
 class PubKey(models.Model):
+
+    KEY_CHOICES = (
+        (1, 'RSAPrivateKey'),
+        (2, 'RSAPublicKey'),
+        (3, 'ECCPrivateKey'),
+        (4, 'ECCPublicKey'),
+    )
+
     dgst = models.CharField(max_length=33, primary_key=True)
-    pub = models.TextField(null=True)
+    keytype = models.IntegerField(choices=KEY_CHOICES)
+    size = models.IntegerField()
     key = models.TextField()
 
     def certs(self):
         return Cert.objects.filter(key=self).count()
+
+    def __str__(self):
+        return self.dgst
 
 
 class Cert(models.Model):
@@ -25,6 +37,7 @@ class Cert(models.Model):
     notbefore = models.DateTimeField()
     notafter = models.DateTimeField()
     issuer = models.ForeignKey('self', null=True)
+    ca = models.BooleanField()
     keyid = models.CharField(max_length=100)
     alternative = models.TextField(null=True)
     certfile = models.TextField()

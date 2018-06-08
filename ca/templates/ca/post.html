@@ -1,10 +1,10 @@
 {% extends 'ca/base.html' %}
 
-{% block title %}import pem{% endblock %}
+{% block title %}post{% endblock %}
 
 {% block body %}
 {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
-<form action="" method="POST" enctype="multipart/form-data">
+<form action="" method="POST">
   {% csrf_token %}
   <table class="table-striped table-condensed table-responsive">
     {{ form }}

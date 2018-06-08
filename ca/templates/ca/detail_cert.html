@@ -1,0 +1,102 @@
+{% extends 'ca/base.html' %}
+{% load render_table from django_tables2 %}
+
+{% block title %}detail cert{% endblock %}
+
+{% block body %}
+<table class="table-striped table-condensed table-responsive">
+  <tbody>
+    <tr>
+      <td>dgst</td>
+      <td>{{obj.dgst}}</td>
+    </tr>
+    <tr>
+      <td>sn</td>
+      <td>{{obj.sn}}</td>
+    </tr>
+    <tr>
+      <td>issuer</td>
+      <td>
+	{% if obj.issuer %}
+	<a href="{% url 'ca:detail_cert' obj.issuer_id %}">
+	  {{obj.issuer.sub}}
+	</a>
+	{% endif %}
+      </td>
+    </tr>
+    <tr>
+      <td>notbefore</td>
+      <td>{{obj.notbefore}}</td>
+    </tr>
+    <tr>
+      <td>notafter</td>
+      <td>{{obj.notafter}}</td>
+    </tr>
+    <tr>
+      <td>subject</td>
+      <td>{{obj.sub}}</td>
+    </tr>
+    <tr>
+      <td>common name</td>
+      <td>{{obj.cn}}</td>
+    </tr>
+    <tr>
+      <td>CA</td>
+      <td>{{ca}}</td>
+    </tr>
+    <tr>
+      <td>subject key identifier</td>
+      <td>{{obj.keyid}}</td>
+    </tr>
+    <tr>
+      <td>authority key identifier</td>
+      <td>{{authkeyid}}</td>
+    </tr>
+    <tr>
+      <td>extended key usage</td>
+      <td>{{extusage}}</td>
+    </tr>
+    <tr>
+      <td>key usage</td>
+      <td>{{usage}}</td>
+    </tr>
+    <tr>
+      <td>alternative</td>
+      <td>{{obj.alternative}}</td>
+    </tr>
+    <tr>
+      <td>key</td>
+      <td>
+	{% if obj.key %}
+	<a href="{% url 'ca:detail_key' obj.key_id %}">
+	  {{obj.key.dgst}}
+	</a>
+	{% endif %}
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+{% render_table tab %}
+{% endblock %}
+
+{% block nav_dropdown %}
+<li class="dropdown">
+  <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+    Ops
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu">
+    <li><a href="{% url 'ca:export_pem' obj.dgst %}">export pem</a></li>
+    <li><a href="{% url 'ca:export_der' obj.dgst %}">export der</a></li>
+    <li><a href="{% url 'ca:export_chain' obj.dgst %}">export chain</a></li>
+    <li><a href="{% url 'ca:export_pkcs12' obj.dgst %}">export pkcs12</a></li>
+    {% if obj.ca %}
+    <li><a href="{% url 'ca:sign_req' obj.dgst %}">sign req</a></li>
+    {% endif %}
+    {% if obj.ca and obj.key %}
+    <li><a href="{% url 'ca:build_cert' obj.dgst %}">build cert</a></li>
+    {% endif %}
+  </ul>
+</li>
+{% endblock %}
