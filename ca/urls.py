@@ -64,6 +64,8 @@ urlpatterns = [
         views.export_pkcs12, name='export_pkcs12'),
     url(r'^rvk/(?P<dgst>[0-9A-F]{16})',
         views.revoke_cert, name='revoke_cert'),
+    url(r'^urvk/(?P<dgst>[0-9A-F]{16})',
+        views.unrevoke_cert, name='unrevoke_cert'),
     url(r'^(?P<dgst>[0-9A-F]{16}).crl',
         views.show_crl, name='show_crl'),
 ]

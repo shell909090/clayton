@@ -91,7 +91,6 @@
           <h4 class="modal-title">sign req</h4>
 	</div>
 	<div class="modal-body">
-	  {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
 	  {% csrf_token %}
 	  {% bootstrap_form formup layout="horizontal" %}
 	</div>
@@ -120,6 +119,12 @@
     {% if obj.ca and obj.key %}
     <li><a data-toggle="modal" data-target="#sign_req">sign req</a></li>
     <li><a href="{% url 'ca:build_cert' obj.dgst %}">build cert</a></li>
+    {% endif %}
+    {% if obj.status == 0 %}
+    <li><a href="{% url 'ca:revoke_cert' obj.dgst %}">revoke</a></li>
+    {% endif %}
+    {% if obj.status == 42 %}
+    <li><a href="{% url 'ca:revoke_cert' obj.dgst %}">unrevoke</a></li>
     {% endif %}
   </ul>
 </li>

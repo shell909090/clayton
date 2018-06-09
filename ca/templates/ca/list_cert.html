@@ -17,7 +17,6 @@
           <h4 class="modal-title">import pem</h4>
 	</div>
 	<div class="modal-body">
-	  {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
 	  {% csrf_token %}
 	  {% bootstrap_form formup layout="horizontal" %}
 	</div>
@@ -33,6 +32,9 @@
 {% endblock %}
 
 {% block nav_left %}
+<form class="navbar-form navbar-left form-inline">
+  <input type="text" name="search" id="id_search" placeholder="anything in table" title="" />
+</form>
 {% if filter %}
 <form action="" method="get" class="navbar-form navbar-left form-inline">
   <div class="input-group">
@@ -57,4 +59,17 @@
     <li><a data-toggle="modal" data-target="#import_pem">import pem</a></li>
   </ul>
 </li>
+{% endblock %}
+
+{% block script %}
+<script>
+$(document).ready(function(){
+  $("#id_search").on("keyup", function() {
+    var value = $(this).val().toLowerCase();
+    $("#cert_list tr").filter(function() {
+      $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+    });
+  });
+});
+</script>
 {% endblock %}

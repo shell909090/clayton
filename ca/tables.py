@@ -27,6 +27,12 @@ class PubKeyTable(tables.Table):
         attrs = {'class': 'table-striped table-condensed table-responsive'}
 
 
+STATUS_COLOR_MAP = {
+    0: '',
+    42: 'warning',
+}
+
+
 class CertTable(tables.Table):
     dgst = tables.TemplateColumn(
         '<a href="{% url \'ca:detail_cert\' record.dgst %}">'
@@ -46,6 +52,7 @@ class CertTable(tables.Table):
     notbefore = tables.DateColumn()
     notafter = tables.DateColumn()
     ops = tables.TemplateColumn(
+        '<a href="{% url \'ca:revoke_cert\' record.dgst %}">revoke</a>  '
         '<a href="{% url \'ca:remove_cert\' record.dgst %}">remove</a>'
     )
 
@@ -54,4 +61,10 @@ class CertTable(tables.Table):
         fields = ('dgst', 'sn', 'cn', 'issuer', 'key',
                   'ca', 'notbefore', 'notafter')
         template_name = 'django_tables2/bootstrap.html'
-        attrs = {'class': 'table-striped table-condensed table-responsive'}
+        attrs = {
+            'id': 'cert_list',
+            'class': 'table-striped table-condensed table-responsive'
+        }
+        row_attrs = {
+            'class': lambda record: STATUS_COLOR_MAP.get(record.status, ''),
+        }

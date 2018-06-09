@@ -8,6 +8,8 @@
 '''
 from __future__ import absolute_import, division,\
     print_function, unicode_literals
+from django.db.models import Q
+
 import django_filters
 
 from . import models
@@ -20,8 +22,12 @@ class PubKeyFilter(django_filters.FilterSet):
 
 
 class CertFilter(django_filters.FilterSet):
-    ca = django_filters.BooleanFilter(label='CA')
+    cn = django_filters.CharFilter(method='cn_filter')
 
     class Meta:
         model = models.Cert
-        fields = ['cn', 'ca', 'alternative']
+        fields = ['cn', 'ca']
+
+    def cn_filter(self, qs, name, value):
+        return qs.filter(Q(cn__contains=value) |
+                         Q(alternative__contains=value))

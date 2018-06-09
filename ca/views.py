@@ -487,7 +487,19 @@ def export_pkcs12(request, dgst):
 
 
 def revoke_cert(request, dgst):
-    pass
+    ocert = Cert.objects.get(dgst=dgst)
+    ocert.status = 42
+    ocert.save()
+    return HttpResponseRedirect(
+        reverse('ca:detail_cert', kwargs={'dgst': ocert.dgst}))
+
+
+def unrevoke_cert(request, dgst):
+    ocert = Cert.objects.get(dgst=dgst)
+    ocert.status = 0
+    ocert.save()
+    return HttpResponseRedirect(
+        reverse('ca:detail_cert', kwargs={'dgst': ocert.dgst}))
 
 
 def show_crl(request, dgst):

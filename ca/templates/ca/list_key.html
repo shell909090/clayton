@@ -17,7 +17,6 @@
           <h4 class="modal-title">build rsa</h4>
 	</div>
 	<div class="modal-body">
-	  {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
 	  {% csrf_token %}
 	  {% bootstrap_form formrsa layout="horizontal" %}
 	</div>
@@ -39,7 +38,6 @@
           <h4 class="modal-title">build ec</h4>
 	</div>
 	<div class="modal-body">
-	  {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
 	  {% csrf_token %}
 	  {% bootstrap_form formec layout="horizontal" %}
 	</div>
@@ -61,7 +59,6 @@
           <h4 class="modal-title">import key</h4>
 	</div>
 	<div class="modal-body">
-	  {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
 	  {% csrf_token %}
 	  {% bootstrap_form formup layout="horizontal" %}
 	</div>
