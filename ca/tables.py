@@ -13,7 +13,7 @@ import django_tables2 as tables
 from .models import PubKey, Cert
 
 
-class KeyTable(tables.Table):
+class PubKeyTable(tables.Table):
     dgst = tables.TemplateColumn(
         '<a href="{% url \'ca:detail_key\' record.dgst %}">{{record.dgst}}</a>'
     )
@@ -30,13 +30,18 @@ class KeyTable(tables.Table):
 
 class CertTable(tables.Table):
     dgst = tables.TemplateColumn(
-        '<a href="{% url \'ca:detail_cert\' record.dgst %}">{{record.dgst}}</a>'
+        '<a href="{% url \'ca:detail_cert\' record.dgst %}">'
+        '{{record.dgst}}</a>'
     )
     issuer = tables.TemplateColumn(
-        '{%if record.issuer%}<a href="{% url \'ca:detail_cert\' record.issuer %}">{{record.issuer}}</a>{%else%}--{%endif%}'
+        '{%if record.issuer%}'
+        '<a href="{% url \'ca:detail_cert\' record.issuer %}">'
+        '{{record.issuer}}</a>{%else%}--{%endif%}'
     )
     key = tables.TemplateColumn(
-        '{%if record.key%}<a href="{% url \'ca:detail_key\' record.key_id %}">{{record.key_id}}</a>{%else%}--{%endif%}'
+        '{%if record.key%}'
+        '<a href="{% url \'ca:detail_key\' record.key_id %}">'
+        '{{record.key_id}}</a>{%else%}--{%endif%}'
     )
     notbefore = tables.DateColumn()
     notafter = tables.DateColumn()
@@ -46,7 +51,7 @@ class CertTable(tables.Table):
 
     class Meta:
         model = Cert
-        fields = ('dgst', 'sn', 'cn', 'issuer', 'key', 'ca',
-                  'notbefore', 'notafter')
+        fields = ('dgst', 'sn', 'cn', 'issuer', 'key',
+                  'ca', 'notbefore', 'notafter')
         template_name = 'django_tables2/bootstrap.html'
         attrs = {'class': 'table-striped table-condensed table-responsive'}

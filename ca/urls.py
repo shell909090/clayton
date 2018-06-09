@@ -16,7 +16,7 @@ from . import views
 app_name = 'ca'
 urlpatterns = [
     url(r'^k/(?P<dgst>[0-9A-F]{0,16})',
-        views.list_key, name='list_key'),
+        views.ListKeyView.as_view(), name='list_key'),
     url(r'^dk/(?P<dgst>[0-9A-F]{16})',
         views.detail_key, name='detail_key'),
     url(r'^rk/(?P<dgst>[0-9A-F]{16})',

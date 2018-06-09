@@ -1,14 +1,17 @@
 {% extends 'ca/base.html' %}
+{% load bootstrap3 %}
 
-{% block title %}post{% endblock %}
+{% block title %}{{title}}{% endblock %}
 
 {% block body %}
 {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
 <form action="" method="POST">
   {% csrf_token %}
-  <table class="table-striped table-condensed table-responsive">
-    {{ form }}
-  </table>
-  <input type="submit" value="提交" />
+  {% bootstrap_form form %}
+  {% buttons %}
+    <button type="submit" class="btn btn-primary">
+      {% bootstrap_icon "star" %} Submit
+    </button>
+  {% endbuttons %}
 </form>
 {% endblock %}

@@ -61,7 +61,7 @@ def get_keyid(pkey):
 
 def load_privatekey(strkey):
     return serialization.load_pem_private_key(
-        bytes(strkey), password=None, backend=default_backend())
+        strkey.encoding('utf-8'), password=None, backend=default_backend())
 
 
 def dump_privatekey(pkey, encoding=Encoding.PEM,
@@ -285,24 +285,6 @@ re_pem = re.compile(
 
 def split_pems(strpems):
     return re_pem.findall(strpems)
-
-
-def verify(strpems):
-    certs = [crypto.load_certificate(crypto.FILETYPE_PEM, strpem)
-             for strpem in strpems]
-    # if strkey:
-    #     pkey = crypto.load_privatekey(crypto.FILETYPE_PEM, strkey)
-    #     num1 = pkey.to_cryptography_key().public_key().public_numbers()
-    #     num2 = certs[0].get_pubkey().to_cryptography_key().public_numbers()
-    #     if num1 != num2:
-    #         raise CryptoError('pubkey not match')
-
-    if len(certs) > 1:
-        store = crypto.X509Store()
-        for cert in certs:
-            store.add_cert(cert)
-        store_ctx = crypto.X509StoreContext(store, certs[0])
-        store_ctx.verify_certificate()
 
 
 def cert_cn(cert):

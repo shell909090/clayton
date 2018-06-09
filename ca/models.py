@@ -4,8 +4,6 @@ from __future__ import unicode_literals
 
 from django.db import models
 
-# Create your models here.
-
 
 class PubKey(models.Model):
 
@@ -19,7 +17,7 @@ class PubKey(models.Model):
     dgst = models.CharField(max_length=33, primary_key=True)
     keytype = models.IntegerField(choices=KEY_CHOICES)
     size = models.IntegerField()
-    key = models.TextField()
+    dat = models.BinaryField()
 
     def certs(self):
         return Cert.objects.filter(key=self).count()
@@ -36,11 +34,12 @@ class Cert(models.Model):
     cn = models.CharField(max_length=100)
     notbefore = models.DateTimeField()
     notafter = models.DateTimeField()
-    issuer = models.ForeignKey('self', null=True)
+    issuer = models.ForeignKey('self', null=True, on_delete=models.DO_NOTHING)
     ca = models.BooleanField()
-    keyid = models.CharField(max_length=100)
+    authkeyid = models.CharField(max_length=65)
+    keyid = models.CharField(max_length=65)
     alternative = models.TextField(null=True)
-    certfile = models.TextField()
+    dat = models.BinaryField()
     key = models.ForeignKey('PubKey', null=True, on_delete=models.DO_NOTHING)
 
     class Meta:

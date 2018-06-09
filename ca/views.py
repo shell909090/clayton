@@ -7,34 +7,42 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.http import HttpResponse, HttpResponseRedirect
 
+from django_filters.views import FilterView
+from django_tables2.views import SingleTableMixin
+
 from cryptography import exceptions
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-
-# import cert
-import crypt
+from . import crypt
 from .models import PubKey, Cert
-from .forms import (BuildRSAForm, BuildECForm, TextForm, DoubleTextForm,
-                    ImpKeyForm, ImpCertForm, ReqForm, SignForm)
-from .tables import KeyTable, CertTable
+from . import forms as caforms
+from . import tables, filters
 
 
 # key
 
 
-def list_key(request, dgst):
-    q = PubKey.objects
-    if dgst:
-        q = q.filter(dgst=dgst)
-    tab = KeyTable(q.all(), request=request)
-    return render(request, 'ca/list_key.html', {'tab': tab})
+# def list_key(request, dgst):
+#     q = PubKey.objects
+#     if dgst:
+#         q = q.filter(dgst=dgst)
+#     tab = KeyTable(q.all(), request=request)
+#     return render(request, 'ca/list_key.html', {'tab': tab})
+
+
+class ListKeyView(SingleTableMixin, FilterView):
+    table_class = tables.PubKeyTable
+    model = PubKey
+    template_name = 'ca/list_key.html'
+    filterset_class = filters.PubKeyFilter
 
 
 def detail_key(request, dgst):
     obj = PubKey.objects.get(dgst=dgst)
     pkey = crypt.load_privatekey(obj.key)
     p = crypt.parse_privatekey(pkey)
-    tab = CertTable(Cert.objects.filter(key_id=dgst).all(), request=request)
+    certs = Cert.objects.filter(key_id=dgst).all()
+    tab = tables.CertTable(certs, request=request)
     pm = {
         'obj': obj,
         'p': p,
@@ -53,11 +61,13 @@ def remove_key(request, dgst):
 
 def build_rsa(request):
     if request.method != 'POST':
-        form = BuildRSAForm()
-        return render(request, 'ca/post.html', {'form': form})
-    form = BuildRSAForm(request.POST)
+        form = caforms.BuildRSAForm()
+        p = {'form': form, 'title': 'build rsa'}
+        return render(request, 'ca/post.html', p)
+    form = caforms.BuildRSAForm(request.POST)
     if not form.is_valid():
-        return render(request, 'ca/post.html', {'form': form})
+        p = {'form': form, 'title': 'build rsa'}
+        return render(request, 'ca/post.html', p)
     size = form.cleaned_data['size']
     pkey = crypt.generate_rsa(size)
     strkey = crypt.dump_privatekey(pkey)
@@ -70,11 +80,13 @@ def build_rsa(request):
 
 def build_ec(request):
     if request.method != 'POST':
-        form = BuildECForm()
-        return render(request, 'ca/post.html', {'form': form})
-    form = BuildECForm(request.POST)
+        form = caforms.BuildECForm()
+        p = {'form': form, 'title': 'build ec'}
+        return render(request, 'ca/post.html', p)
+    form = caforms.BuildECForm(request.POST)
     if not form.is_valid():
-        return render(request, 'ca/post.html', {'form': form})
+        p = {'form': form, 'title': 'build ec'}
+        return render(request, 'ca/post.html', p)
     curve = form.cleaned_data['curve']
     pkey = crypt.generate_ec(curve)
     size = pkey.public_key().public_numbers().curve.key_size
@@ -88,57 +100,65 @@ def build_ec(request):
 
 def encrypt(request, dgst):
     if request.method != 'POST':
-        form = TextForm()
-        return render(request, 'ca/post.html', {'form': form})
-    form = TextForm(request.POST)
+        form = caforms.TextForm()
+        p = {'form': form, 'title': 'encrypt message'}
+        return render(request, 'ca/post.html', p)
+    form = caforms.TextForm(request.POST)
     if not form.is_valid():
-        return render(request, 'ca/post.html', {'form': form})
+        p = {'form': form, 'title': 'encrypt message'}
+        return render(request, 'ca/post.html', p)
     okey = PubKey.objects.get(dgst=dgst)
-    pkey = crypt.load_privatekey(okey.key)
+    pkey = crypt.load_privatekey(okey.dat)
     msg = bytes(form.cleaned_data['txt'])
     enc = pkey.public_key().encrypt(msg, crypt.OAEP)
-    print(enc)
-    return render(request, 'ca/show_msg.html',
-                  {'msg': binascii.b2a_base64(enc)})
+    p = {'msg': binascii.b2a_base64(enc), 'title': 'encrypt message'}
+    return render(request, 'ca/show_msg.html', p)
 
 
 def decrypt(request, dgst):
     if request.method != 'POST':
-        form = TextForm()
-        return render(request, 'ca/post.html', {'form': form})
-    form = TextForm(request.POST)
+        form = caforms.TextForm()
+        p = {'form': form, 'title': 'decrypt message'}
+        return render(request, 'ca/post.html', p)
+    form = caforms.TextForm(request.POST)
     if not form.is_valid():
-        return render(request, 'ca/post.html', {'form': form})
+        p = {'form': form, 'title': 'decrypt message'}
+        return render(request, 'ca/post.html', p)
     okey = PubKey.objects.get(dgst=dgst)
-    pkey = crypt.load_privatekey(okey.key)
+    pkey = crypt.load_privatekey(okey.dat)
     enc = binascii.a2b_base64(form.cleaned_data['txt'])
     msg = pkey.decrypt(bytes(enc), crypt.OAEP)
-    return render(request, 'ca/show_msg.html', {'msg': msg})
+    p = {'msg': msg, 'title': 'decrypt message'}
+    return render(request, 'ca/show_msg.html', p)
 
 
 def sign(request, dgst):
     if request.method != 'POST':
-        form = TextForm()
-        return render(request, 'ca/post.html', {'form': form})
-    form = TextForm(request.POST)
+        form = caforms.TextForm()
+        p = {'form': form, 'title': 'sign message'}
+        return render(request, 'ca/post.html', p)
+    form = caforms.TextForm(request.POST)
     if not form.is_valid():
-        return render(request, 'ca/post.html', {'form': form})
+        p = {'form': form, 'title': 'sign message'}
+        return render(request, 'ca/post.html', p)
     okey = PubKey.objects.get(dgst=dgst)
-    pkey = crypt.load_privatekey(okey.key)
+    pkey = crypt.load_privatekey(okey.dat)
     s = crypt.pubkey_sign(pkey, bytes(form.cleaned_data['txt']))
-    return render(request, 'ca/show_msg.html',
-                  {'msg': binascii.b2a_base64(s)})
+    p = {'msg': binascii.b2a_base64(s), 'title': 'sign message'}
+    return render(request, 'ca/show_msg.html', p)
 
 
 def verify(request, dgst):
     if request.method != 'POST':
-        form = DoubleTextForm()
-        return render(request, 'ca/post.html', {'form': form})
-    form = DoubleTextForm(request.POST)
+        form = caforms.DoubleTextForm()
+        p = {'form': form, 'title': 'verify sign'}
+        return render(request, 'ca/post.html', p)
+    form = caforms.DoubleTextForm(request.POST)
     if not form.is_valid():
-        return render(request, 'ca/post.html', {'form': form})
+        p = {'form': form, 'title': 'verify sign'}
+        return render(request, 'ca/post.html', p)
     okey = PubKey.objects.get(dgst=dgst)
-    pkey = crypt.load_privatekey(okey.key)
+    pkey = crypt.load_privatekey(okey.dat)
     sig = bytes(binascii.a2b_base64(form.cleaned_data['txt2']))
     try:
         crypt.pubkey_verify(pkey.public_key(),
@@ -146,7 +166,8 @@ def verify(request, dgst):
         msg = 'OK'
     except exceptions.InvalidSignature:
         msg = 'failed'
-    return render(request, 'ca/show_msg.html', {'msg': msg})
+    p = {'msg': msg, 'title': 'verify sign'}
+    return render(request, 'ca/show_msg.html', p)
 
 
 def imp_key(strkey):
@@ -165,11 +186,13 @@ def imp_key(strkey):
 
 def import_key(request):
     if request.method != 'POST':
-        form = ImpKeyForm()
-        return render(request, 'ca/import_pem.html', {'form': form})
-    form = ImpKeyForm(request.POST, request.FILES)
+        form = caforms.ImpKeyForm()
+        p = {'form': form, 'title': 'import key'}
+        return render(request, 'ca/post.html', p)
+    form = caforms.ImpKeyForm(request.POST, request.FILES)
     if not form.is_valid():
-        return render(request, 'ca/import_pem.html', {'form': form})
+        p = {'form': form, 'title': 'import key'}
+        return render(request, 'ca/post.html', p)
 
     imp_key(form.cleaned_data['prikey'].read())
     return HttpResponseRedirect(
@@ -178,14 +201,14 @@ def import_key(request):
 
 def export_key(request, dgst):
     okey = PubKey.objects.get(dgst=dgst)
-    resp = HttpResponse(okey.key, content_type="application/x-pem-file")
+    resp = HttpResponse(okey.dat, content_type="application/x-pem-file")
     resp['Content-Disposition'] = 'inline; filename=%s.pem' % okey.dgst
     return resp
 
 
 def export_pubkey(request, dgst):
     okey = PubKey.objects.get(dgst=dgst)
-    pkey = crypt.load_privatekey(okey.key)
+    pkey = crypt.load_privatekey(okey.dat)
     strpub = crypt.dump_publickey(pkey)
     resp = HttpResponse(strpub, content_type="application/x-pem-file")
     resp['Content-Disposition'] = 'inline; filename=%s.pem' % okey.dgst
@@ -194,22 +217,25 @@ def export_pubkey(request, dgst):
 
 def export_sshpub(request, dgst):
     okey = PubKey.objects.get(dgst=dgst)
-    pkey = crypt.load_privatekey(okey.key)
+    pkey = crypt.load_privatekey(okey.dat)
     strpub = crypt.dump_publickey(pkey, encoding=Encoding.OpenSSH,
                                   format=PublicFormat.OpenSSH)
-    return render(request, 'ca/show_msg.html', {'msg': strpub})
+    p = {'title': 'ssh public key', 'msg': strpub}
+    return render(request, 'ca/show_msg.html', p)
 
 
 def build_req(request, dgst):
     if request.method != 'POST':
-        form = ReqForm()
-        return render(request, 'ca/build_req.html', {'form': form})
-    form = ReqForm(request.POST)
+        form = caforms.ReqForm()
+        p = {'form': form, 'title': 'build cert request'}
+        return render(request, 'ca/post.html', p)
+    form = caforms.ReqForm(request.POST)
     if not form.is_valid():
-        return render(request, 'ca/build_req.html', {'form': form})
+        p = {'form': form, 'title': 'build cert request'}
+        return render(request, 'ca/post.html', p)
 
     okey = PubKey.objects.get(dgst=dgst)
-    pkey = crypt.load_privatekey(okey.key)
+    pkey = crypt.load_privatekey(okey.dat)
     csr = crypt.generate_req(pkey, form.cleaned_data)
 
     if form.cleaned_data['selfsign']:
@@ -229,17 +255,18 @@ def build_req(request, dgst):
 
 
 def list_cert(request, dgst):
-    certs = Cert.objects
+    q = Cert.objects
     if dgst:
-        certs = certs.filter(dgst=dgst)
-    tab = CertTable(certs.all(), request=request)
+        q = certs.filter(dgst=dgst)
+    tab = tables.CertTable(q.all(), request=request)
     return render(request, 'ca/list_cert.html', {'tab': tab})
 
 
 def detail_cert(request, dgst):
     obj = Cert.objects.get(dgst=dgst)
-    cert = crypt.load_certificate(obj.certfile)
-    tab = CertTable(Cert.objects.filter(issuer=obj).all(), request=request)
+    cert = crypt.load_certificate(obj.dat)
+    certs = Cert.objects.filter(issuer=obj).all()
+    tab = tables.CertTable(certs, request=request)
     p = {
         'obj': obj,
         'cert': cert,
@@ -277,7 +304,7 @@ def imp_cert(strpem):
         ca=bool(crypt.cert_ca(cert)),
         keyid=crypt.cert_subject_keyid(cert),
         alternative=crypt.cert_alternative(cert),
-        certfile=strpem,
+        dat=strpem,
         key_id=crypt.get_keyid(cert))
     ocert.save()
     return ocert
@@ -285,11 +312,13 @@ def imp_cert(strpem):
 
 def import_pem(request):
     if request.method != 'POST':
-        form = ImpCertForm()
-        return render(request, 'ca/import_pem.html', {'form': form})
-    form = ImpCertForm(request.POST, request.FILES)
+        form = caforms.ImpCertForm()
+        p = {'form': form, 'title': 'import cert'}
+        return render(request, 'ca/post.html', p)
+    form = caforms.ImpCertForm(request.POST, request.FILES)
     if not form.is_valid():
-        return render(request, 'ca/import_pem.html', {'form': form})
+        p = {'form': form, 'title': 'import cert'}
+        return render(request, 'ca/post.html', p)
 
     certchain = form.cleaned_data['certchain'].read()
     strpems = list(crypt.split_pems(certchain))
@@ -310,17 +339,17 @@ def remove_cert(request, dgst):
 
 def build_cert(request, dgst):
     if request.method != 'POST':
-        form = ReqForm()
+        form = caforms.ReqForm()
         form.fields['selfsign'].widget = forms.HiddenInput()
         return render(request, 'ca/build_req.html', {'form': form})
-    form = ReqForm(request.POST)
+    form = caforms.ReqForm(request.POST)
     form.fields['selfsign'].widget = forms.HiddenInput()
     if not form.is_valid():
         return render(request, 'ca/build_req.html', {'form': form})
 
     issuer_ocert = Cert.objects.get(dgst=dgst)
-    issuer_cert = crypt.load_certificate(issuer_ocert.certfile)
-    issuer_key = crypt.load_privatekey(issuer_ocert.key.key)
+    issuer_cert = crypt.load_certificate(issuer_ocert.dat)
+    issuer_key = crypt.load_privatekey(issuer_ocert.key.dat)
 
     pkey = crypt.generate_rsa(2048)
     strkey = crypt.dump_privatekey(pkey)
@@ -339,15 +368,17 @@ def build_cert(request, dgst):
 # FIXME: 确认过程
 def sign_req(request, dgst):
     if request.method != 'POST':
-        form = SignForm()
-        return render(request, 'ca/sign_req.html', {'form': form})
-    form = SignForm(request.POST, request.FILES)
+        form = caforms.SignForm()
+        p = {'form': form, 'title': 'import cert'}
+        return render(request, 'ca/post.html', p)
+    form = caforms.SignForm(request.POST, request.FILES)
     if not form.is_valid():
-        return render(request, 'ca/sign_req.html', {'form': form})
+        p = {'form': form, 'title': 'import cert'}
+        return render(request, 'ca/post.html', p)
 
     issuer_ocert = Cert.objects.get(dgst=dgst)
-    issuer_cert = crypt.load_certificate(issuer_ocert.certfile)
-    issuer_pkey = crypt.load_privatekey(issuer_ocert.key.key)
+    issuer_cert = crypt.load_certificate(issuer_ocert.dat)
+    issuer_pkey = crypt.load_privatekey(issuer_ocert.key.dat)
 
     strcsr = form.cleaned_data['req'].read()
     csr = crypt.load_certificate_request(strcsr)
@@ -361,14 +392,14 @@ def sign_req(request, dgst):
 
 def export_pem(request, dgst):
     ocert = Cert.objects.get(dgst=dgst)
-    resp = HttpResponse(ocert.certfile, content_type="application/x-pem-file")
+    resp = HttpResponse(ocert.dat, content_type="application/x-pem-file")
     resp['Content-Disposition'] = 'inline; filename=%s.pem' % ocert.dgst
     return resp
 
 
 def export_der(request, dgst):
     ocert = Cert.objects.get(dgst=dgst)
-    cert = crypt.load_certificate(ocert.certfile)
+    cert = crypt.load_certificate(ocert.dat)
     strcert = crypt.dump_certificate(cert, Encoding.DER)
     resp = HttpResponse(strcert, content_type="application/pkix-cert")
     resp['Content-Disposition'] = 'inline; filename=%s.der' % ocert.dgst
@@ -379,7 +410,7 @@ def export_chain(request, dgst):
     certs = []
     ocert = Cert.objects.get(dgst=dgst)
     while ocert:
-        certs.append(ocert.certfile)
+        certs.append(ocert.dat)
         ocert = ocert.issuer
     certs.pop(-1)
     resp = HttpResponse('\n'.join(certs),
@@ -391,9 +422,9 @@ def export_chain(request, dgst):
 def export_pkcs12(request, dgst):
     certs = []
     ocert = Cert.objects.get(dgst=dgst)
-    strkey = ocert.key.key
+    strkey = ocert.key.dat
     while ocert:
-        certs.append(ocert.certfile)
+        certs.append(ocert.dat)
         ocert = ocert.issuer
     # TODO: passphrase
     strpkcs12 = crypt.to_pkcs12(strkey, certs.pop(0), certs)

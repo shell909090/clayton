@@ -32,6 +32,7 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'ca',
+    'bootstrap3',
     'django_tables2',
     'django.contrib.admin',
     'django.contrib.auth',
