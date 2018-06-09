@@ -6,8 +6,6 @@
 @copyright: 2018, Shell.Xu <shell909090@gmail.com>
 @license: BSD-3-clause
 '''
-from __future__ import absolute_import, division,\
-    print_function, unicode_literals
 from django.conf.urls import url
 
 from . import views
@@ -15,7 +13,7 @@ from . import views
 
 app_name = 'ca'
 urlpatterns = [
-    url(r'^k/(?P<dgst>[0-9A-F]{0,16})',
+    url(r'^k/',
         views.ListKeyView.as_view(), name='list_key'),
     url(r'^dk/(?P<dgst>[0-9A-F]{16})',
         views.detail_key, name='detail_key'),
@@ -45,7 +43,7 @@ urlpatterns = [
         views.build_req, name='build_req'),
 
     url(r'^c/(?P<dgst>[0-9A-F]{0,16})',
-        views.list_cert, name='list_cert'),
+        views.ListCertView.as_view(), name='list_cert'),
     url(r'^dc/(?P<dgst>[0-9A-F]{16})',
         views.detail_cert, name='detail_cert'),
     url(r'^ip',

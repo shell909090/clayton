@@ -6,8 +6,6 @@
 @copyright: 2018, Shell.Xu <shell909090@gmail.com>
 @license: BSD-3-clause
 '''
-from __future__ import absolute_import, division,\
-    print_function, unicode_literals
 import django_tables2 as tables
 
 from .models import PubKey, Cert
@@ -23,7 +21,7 @@ class PubKeyTable(tables.Table):
 
     class Meta:
         model = PubKey
-        fields = ('dgst', 'keytype', 'size', 'certs')
+        fields = ('dgst', 'keytype', 'size', 'cert_count')
         template_name = 'django_tables2/bootstrap.html'
         attrs = {'class': 'table-striped table-condensed table-responsive'}
 

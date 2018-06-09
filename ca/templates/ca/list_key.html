@@ -5,17 +5,16 @@
 {% block title %}list key{% endblock %}
 
 {% block body %}
-{% if filter %}
-    <form action="" method="get" class="form form-inline">
-        {% bootstrap_form filter.form layout='inline' %}
-        {% bootstrap_button 'filter' %}
-    </form>
-{% endif %}
-
 {% render_table table %}
 {% endblock %}
 
 {% block nav_dropdown %}
+{% if filter %}
+<form action="" method="get" class="navbar-form navbar-left form-inline">
+  {% bootstrap_form filter.form layout='inline' %}
+  {% bootstrap_button 'filter' %}
+</form>
+{% endif %}
 <li class="dropdown">
   <a class="dropdown-toggle" data-toggle="dropdown" href="#">
     Ops

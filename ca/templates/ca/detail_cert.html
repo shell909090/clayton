@@ -76,7 +76,6 @@
     </tr>
   </tbody>
 </table>
-
 {% render_table tab %}
 {% endblock %}
 
@@ -91,10 +90,8 @@
     <li><a href="{% url 'ca:export_der' obj.dgst %}">export der</a></li>
     <li><a href="{% url 'ca:export_chain' obj.dgst %}">export chain</a></li>
     <li><a href="{% url 'ca:export_pkcs12' obj.dgst %}">export pkcs12</a></li>
-    {% if obj.ca %}
-    <li><a href="{% url 'ca:sign_req' obj.dgst %}">sign req</a></li>
-    {% endif %}
     {% if obj.ca and obj.key %}
+    <li><a href="{% url 'ca:sign_req' obj.dgst %}">sign req</a></li>
     <li><a href="{% url 'ca:build_cert' obj.dgst %}">build cert</a></li>
     {% endif %}
   </ul>

@@ -19,7 +19,7 @@ class PubKey(models.Model):
     size = models.IntegerField()
     dat = models.BinaryField()
 
-    def certs(self):
+    def cert_count(self):
         return Cert.objects.filter(key=self).count()
 
     def __str__(self):
@@ -34,13 +34,17 @@ class Cert(models.Model):
     cn = models.CharField(max_length=100)
     notbefore = models.DateTimeField()
     notafter = models.DateTimeField()
-    issuer = models.ForeignKey('self', null=True, on_delete=models.DO_NOTHING)
+    issuer = models.ForeignKey(
+        'self', null=True,
+        on_delete=models.DO_NOTHING, db_constraint=False)
     ca = models.BooleanField()
     authkeyid = models.CharField(max_length=65)
     keyid = models.CharField(max_length=65)
     alternative = models.TextField(null=True)
     dat = models.BinaryField()
-    key = models.ForeignKey('PubKey', null=True, on_delete=models.DO_NOTHING)
+    key = models.ForeignKey(
+        'PubKey', null=True, related_name='certs',
+        on_delete=models.DO_NOTHING, db_constraint=False)
 
     class Meta:
         unique_together = (

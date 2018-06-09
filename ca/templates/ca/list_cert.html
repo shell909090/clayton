@@ -1,13 +1,20 @@
 {% extends 'ca/base.html' %}
 {% load render_table from django_tables2 %}
+{% load bootstrap3 %}
 
 {% block title %}list cert{% endblock %}
 
 {% block body %}
-{% render_table tab %}
+{% render_table table %}
 {% endblock %}
 
 {% block nav_dropdown %}
+{% if filter %}
+<form action="" method="get" class="navbar-form navbar-left form-inline">
+  {% bootstrap_form filter.form layout='inline' %}
+  {% bootstrap_button 'filter' %}
+</form>
+{% endif %}
 <li class="dropdown">
   <a class="dropdown-toggle" data-toggle="dropdown" href="#">
     Ops

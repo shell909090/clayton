@@ -8,7 +8,6 @@
 '''
 from __future__ import absolute_import, division,\
     print_function, unicode_literals
-
 from django import forms
 
 from cryptography.x509.oid import ExtendedKeyUsageOID
@@ -35,12 +34,8 @@ class DoubleTextForm(forms.Form):
     txt2 = forms.CharField(widget=forms.Textarea)
 
 
-class ImpKeyForm(forms.Form):
-    prikey = forms.FileField()
-
-
-class ImpCertForm(forms.Form):
-    certchain = forms.FileField()
+class UploadForm(forms.Form):
+    upload = forms.FileField()
 
 
 EXT_USAGE_CHOICES = (
@@ -61,22 +56,14 @@ EXT_USAGE_CHOICES = (
 
 
 class ReqForm(forms.Form):
-    cn = forms.CharField(max_length=50,
-                         widget=forms.TextInput(attrs={'size': 50}))
-    country = forms.CharField(max_length=3, required=False,
-                              widget=forms.TextInput(attrs={'size': 3}))
-    province = forms.CharField(max_length=10, required=False,
-                               widget=forms.TextInput(attrs={'size': 3}))
-    city = forms.CharField(max_length=30, required=False,
-                           widget=forms.TextInput(attrs={'size': 30}))
-    org = forms.CharField(max_length=30, required=False,
-                          widget=forms.TextInput(attrs={'size': 30}))
-    email = forms.CharField(max_length=50, required=False,
-                            widget=forms.TextInput(attrs={'size': 50}))
-    ou = forms.CharField(max_length=30, required=False,
-                         widget=forms.TextInput(attrs={'size': 30}))
-    alternative = forms.CharField(max_length=200, required=False,
-                                  widget=forms.Textarea)
+    cn = forms.CharField(max_length=50)
+    country = forms.CharField(max_length=3, required=False)
+    province = forms.CharField(max_length=10, required=False)
+    city = forms.CharField(max_length=30, required=False)
+    org = forms.CharField(max_length=30, required=False)
+    email = forms.CharField(max_length=50, required=False)
+    ou = forms.CharField(max_length=30, required=False)
+    alternative = forms.CharField(max_length=200, required=False)
     usage = forms.ChoiceField(choices=EXT_USAGE_CHOICES, required=False)
     ca = forms.BooleanField(required=False)
     selfsign = forms.BooleanField(required=False)
@@ -84,4 +71,9 @@ class ReqForm(forms.Form):
 
 class SignForm(forms.Form):
     req = forms.FileField()
-    days = forms.CharField(max_length=3, required=False)
+
+
+class SignConfirmForm(forms.Form):
+    csr = forms.CharField(max_length=100000,
+                          widget=forms.HiddenInput())
+    days = forms.CharField(max_length=5, required=False)

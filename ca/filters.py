@@ -20,6 +20,8 @@ class PubKeyFilter(django_filters.FilterSet):
 
 
 class CertFilter(django_filters.FilterSet):
+    ca = django_filters.BooleanFilter(label='CA')
+
     class Meta:
         model = models.Cert
         fields = ['cn', 'ca', 'alternative']

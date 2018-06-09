@@ -1,0 +1,43 @@
+{% extends 'ca/base.html' %}
+{% load render_table from django_tables2 %}
+{% load bootstrap3 %}
+
+{% block title %}sign confirm{% endblock %}
+
+{% block body %}
+<table class="table-striped table-condensed table-responsive">
+  <tbody>
+    <tr>
+      <td>subject</td>
+      <td>{{obj.subject}}</td>
+    </tr>
+    <tr>
+      <td>common name</td>
+      <td>{{obj.cn}}</td>
+    </tr>
+    {% for k, v in obj.extensions %}
+    <tr>
+      <td>{{k}}</td>
+      <td>{{v}}</td>
+    </tr>
+    {% endfor %}
+    <tr>
+      <td>key</td>
+      <td>
+	<a href="{% url 'ca:detail_key' obj.get_keyid %}">
+	  {{obj.get_keyid}}
+	</a>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+{% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
+<form action="" method="POST">
+  {% csrf_token %}
+  {% bootstrap_form form %}
+  {% buttons %}
+  <button type="submit" class="btn btn-primary">Submit</button>
+  {% endbuttons %}
+</form>
+{% endblock %}

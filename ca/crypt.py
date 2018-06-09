@@ -6,8 +6,6 @@
 @copyright: 2018, Shell.Xu <shell909090@gmail.com>
 @license: BSD-3-clause
 '''
-from __future__ import absolute_import, division,\
-    print_function, unicode_literals
 import re
 import random
 import hashlib
@@ -56,12 +54,12 @@ def hexdigest_publickey(pkey):
 
 
 def get_keyid(pkey):
-    return hexdigest_publickey(pkey.public_key())[-16:]
+    return hexdigest_publickey(pkey.public_key())[-16:].decode('utf-8')
 
 
-def load_privatekey(strkey):
+def load_privatekey(bkey, password=None):
     return serialization.load_pem_private_key(
-        strkey.encoding('utf-8'), password=None, backend=default_backend())
+        bkey, password=password, backend=default_backend())
 
 
 def dump_privatekey(pkey, encoding=Encoding.PEM,
@@ -73,9 +71,13 @@ def dump_privatekey(pkey, encoding=Encoding.PEM,
                               encryption_algorithm=encryption_algorithm)
 
 
+def load_publickey(bkey):
+    return serialization.load_pem_public_key(bkey, backend=default_backend())
+
+
 def dump_publickey(pkey, encoding=Encoding.PEM,
                    format=PublicFormat.SubjectPublicKeyInfo):
-    return pkey.public_key().public_bytes(encoding=encoding, format=format)
+    return pkey.public_bytes(encoding=encoding, format=format)
 
 
 def parse_privatekey(pkey):
@@ -84,33 +86,33 @@ def parse_privatekey(pkey):
         pn = pkey.public_key().public_numbers()
         p = {'type': 'RSAPrivateKey',
              'size': pkey.public_key().key_size,
-             'n': hex(pn.n).upper()[2:-1].upper(),
-             'e': hex(pn.e).upper()[2:].strip('L').upper(),
-             'd': hex(sn.d).upper()[2:-1].upper(),
-             'p': hex(sn.p).upper()[2:-1].upper(),
-             'q': hex(sn.q).upper()[2:-1].upper()}
+             'n': hex(pn.n)[2:-1].upper(),
+             'e': hex(pn.e)[2:].strip('L').upper(),
+             'd': hex(sn.d)[2:-1].upper(),
+             'p': hex(sn.p)[2:-1].upper(),
+             'q': hex(sn.q)[2:-1].upper()}
     elif isinstance(pkey, rsa.RSAPublicKey):
         pn = pkey.public_numbers()
         p = {'type': 'RSAPublicKey',
              'size': pkey.key_size,
-             'n': hex(pn.n).upper()[2:-1].upper(),
-             'e': hex(pn.e).upper()[2:].strip('L').upper()}
+             'n': hex(pn.n)[2:-1].upper(),
+             'e': hex(pn.e)[2:].strip('L').upper()}
     elif isinstance(pkey, ec.EllipticCurvePrivateKey):
         sn = pkey.private_numbers()
         pn = pkey.public_key().public_numbers()
         p = {'type': 'ECCPrivateKey',
              'curve': pn.curve.name,
              'size': pn.curve.key_size,
-             'x': hex(pn.x).upper()[2:-1].upper(),
-             'y': hex(pn.y).upper()[2:-1].upper(),
+             'x': hex(pn.x)[2:-1].upper(),
+             'y': hex(pn.y)[2:-1].upper(),
              'private': hex(sn.private_value).upper()[2:-1].upper()}
     elif isinstance(pkey, ec.EllipticCurvePublicKey):
         pn = pkey.public_numbers()
         p = {'type': 'ECCPublicKey',
              'curve': pn.curve.name,
              'size': pn.curve.key_size,
-             'x': hex(pn.x).upper()[2:-1].upper(),
-             'y': hex(pn.y).upper()[2:-1].upper()}
+             'x': hex(pn.x)[2:-1].upper(),
+             'y': hex(pn.y)[2:-1].upper()}
     return p
 
 
@@ -151,16 +153,16 @@ def cert_fingerprint(cert):
 
 
 def get_cert_dgst(cert):
-    return cert_fingerprint(cert)[-16:]
+    return cert_fingerprint(cert)[-16:].decode('utf-8')
 
 
-def generate_subj_str(sub):
-    return ', '.join(['%s = %s' % i for i in sub.get_components()])
+# def generate_subj_str(sub):
+#     return ', '.join(['%s = %s' % i for i in sub.get_components()])
 
 
-def gen_sub_name_str(name):
-    return ', '.join(['%s = %s' % (n.oid._name, n.value)
-                      for n in name if n.oid._name != 'Unknown OID'])
+def gen_sub_name_str(name, delimiter=', '):
+    return delimiter.join(['%s=%s' % (n.oid._name, n.value)
+                           for n in name if n.oid._name != 'Unknown OID'])
 
 
 NAME_MAPPING = (
@@ -185,6 +187,12 @@ EXTENDED_KEY_USAGE_MAPPING = {
 }
 
 
+KEY_USAGE_NAMES = [
+    'digital_signature', 'content_commitment', 'key_encipherment',
+    'data_encipherment', 'key_agreement', 'key_cert_sign',
+    'crl_sign', 'encipher_only', 'decipher_only']
+
+
 def generate_req(pkey, data):
     name = [x509.NameAttribute(m, data[n])
             for n, m in NAME_MAPPING if data.get(n)]
@@ -193,17 +201,10 @@ def generate_req(pkey, data):
     if data.get('ca'):
         csr = csr.add_extension(
             x509.BasicConstraints(True, None), critical=False)
-        usage = x509.KeyUsage(
-            digital_signature=False,
-            content_commitment=False,
-            key_encipherment=False,
-            data_encipherment=False,
-            key_agreement=False,
-            key_cert_sign=True,
-            crl_sign=True,
-            encipher_only=False,
-            decipher_only=False)
-        csr = csr.add_extension(usage, critical=False)
+        kw = {n: False for n in KEY_USAGE_NAMES}
+        kw['key_cert_sign'] = True
+        kw['crl_sign'] = True
+        csr = csr.add_extension(x509.KeyUsage(**kw), critical=False)
     if data.get('alternative'):
         alternative = [x509.DNSName(d.strip())
                        for d in data['alternative'].split(',')]
@@ -221,15 +222,46 @@ def dump_certificate_request(csr):
     return csr.public_bytes(Encoding.PEM)
 
 
-def load_certificate_request(strcsr):
-    return x509.load_pem_x509_csr(strcsr, default_backend())
+def load_certificate_request(bcsr):
+    return x509.load_pem_x509_csr(bcsr, default_backend())
+
+
+class CSRReader(object):
+
+    def __init__(self, csr):
+        self.csr = csr
+
+    def subject(self):
+        return gen_sub_name_str(self.csr.subject)
+
+    def cn(self):
+        return self.csr.subject.get_attributes_for_oid(
+            NameOID.COMMON_NAME)[0].value
+
+    def get_keyid(self):
+        return get_keyid(self.csr)
+
+    def extensions(self):
+        for ext in self.csr.extensions:
+            if isinstance(ext.value, x509.BasicConstraints):
+                yield ext.oid._name, ext.value.ca
+            elif isinstance(ext.value, x509.KeyUsage):
+                v = ', '.join(['%s=%s' % (n, getattr(ext.value, n))
+                               for n in KEY_USAGE_NAMES[:-2]])
+                yield ext.oid._name, v
+            elif isinstance(ext.value, x509.ExtendedKeyUsage):
+                yield ext.oid._name, ', '.join([u._name for u in ext.value])
+            elif isinstance(ext.value, x509.SubjectAlternativeName):
+                yield ext.oid._name, ', '.join(v.value for v in ext.value)
+            elif isinstance(ext.value, x509.OCSPNoCheck):
+                yield ext.oid._name, True
+            elif isinstance(ext.value, x509.TLSFeature):
+                yield ext.oid._name, True
 
 
 def selfsign_req(csr, issuer_pkey, serial=None, days=3650):
-    if not serial:
-        # serial = x509.random_serial_number()
+    if not serial:  # FIXME: 排重
         serial = random.getrandbits(64)
-        # FIXME: 排重
     cert = x509.CertificateBuilder()\
                .subject_name(csr.subject)\
                .issuer_name(csr.subject)\
@@ -241,18 +273,16 @@ def selfsign_req(csr, issuer_pkey, serial=None, days=3650):
     cert = cert.add_extension(
         x509.SubjectKeyIdentifier.from_public_key(csr.public_key()),
         critical=False)
-    cert = cert.add_extension(
-        x509.AuthorityKeyIdentifier.from_issuer_public_key(
-            issuer_pkey.public_key()),
-        critical=False)
+    authkeyid = x509.AuthorityKeyIdentifier(
+        _key_identifier_from_public_key(issuer_pkey.public_key()),
+        [x509.DirectoryName(csr.subject), ], serial)
+    cert = cert.add_extension(authkeyid, critical=False)
     return cert.sign(issuer_pkey, hashes.SHA256(), default_backend())
 
 
 def sign_req(csr, issuer_cert, issuer_pkey, serial=None, days=3650):
-    if not serial:
-        # serial = x509.random_serial_number()
+    if not serial:  # FIXME: 排重
         serial = random.getrandbits(64)
-        # FIXME: 排重
     cert = x509.CertificateBuilder()\
                .subject_name(csr.subject)\
                .issuer_name(issuer_cert.subject)\
@@ -264,10 +294,10 @@ def sign_req(csr, issuer_cert, issuer_pkey, serial=None, days=3650):
     cert = cert.add_extension(
         x509.SubjectKeyIdentifier.from_public_key(csr.public_key()),
         critical=False)
-    cert = cert.add_extension(
-        x509.AuthorityKeyIdentifier.from_issuer_public_key(
-            issuer_cert.public_key()),
-        critical=False)
+    authkeyid = x509.AuthorityKeyIdentifier(
+        _key_identifier_from_public_key(issuer_pkey.public_key()),
+        [x509.DirectoryName(issuer_cert.subject), ], issuer_cert.serial_number)
+    cert = cert.add_extension(authkeyid, critical=False)
     return cert.sign(issuer_pkey, hashes.SHA256(), default_backend())
 
 
@@ -275,48 +305,21 @@ def dump_certificate(cert, encoding=Encoding.PEM):
     return cert.public_bytes(encoding=encoding)
 
 
-def load_certificate(strcert):
-    return x509.load_pem_x509_certificate(bytes(strcert), default_backend())
+def load_certificate(bcert):
+    return x509.load_pem_x509_certificate(bcert, default_backend())
 
 
 re_pem = re.compile(
-    '-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----', re.S)
+    b'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----', re.S)
 
 
-def split_pems(strpems):
-    return re_pem.findall(strpems)
+def split_pems(bpems):
+    return re_pem.findall(bpems)
 
 
 def cert_cn(cert):
     return cert.subject.get_attributes_for_oid(
         NameOID.COMMON_NAME)[0].value
-
-
-def cert_subject_keyid(cert):
-    try:
-        ext = cert.extensions.get_extension_for_oid(
-            ExtensionOID.SUBJECT_KEY_IDENTIFIER)
-        return binascii.b2a_hex(ext.value.digest).upper()
-    except x509.ExtensionNotFound:
-        return
-
-
-def cert_alternative(cert):
-    try:
-        ext = cert.extensions.get_extension_for_oid(
-            ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
-        return ', '.join(ext.value.get_values_for_type(x509.DNSName))
-    except x509.ExtensionNotFound:
-        return
-
-
-def cert_authkeyid(cert):
-    try:
-        ext = cert.extensions.get_extension_for_oid(
-            ExtensionOID.AUTHORITY_KEY_IDENTIFIER)
-        return binascii.b2a_hex(ext.value.key_identifier).upper()
-    except x509.ExtensionNotFound:
-        return
 
 
 def cert_ca(cert):
@@ -325,16 +328,7 @@ def cert_ca(cert):
             ExtensionOID.BASIC_CONSTRAINTS)
         return ext.value.ca, ext.value.path_length
     except x509.ExtensionNotFound:
-        return
-
-
-def cert_extusage(cert):
-    try:
-        ext = cert.extensions.get_extension_for_oid(
-            ExtensionOID. EXTENDED_KEY_USAGE)
-        return ', '.join([u._name for u in ext.value])
-    except x509.ExtensionNotFound:
-        return
+        return False, None
 
 
 def cert_usage(cert):
@@ -349,103 +343,53 @@ def cert_usage(cert):
         return
 
 
-def to_pkcs12(strkey, strcert, str_ca_certs, passphrase=None):
+def cert_extusage(cert):
+    try:
+        ext = cert.extensions.get_extension_for_oid(
+            ExtensionOID. EXTENDED_KEY_USAGE)
+        return ', '.join([u._name for u in ext.value])
+    except x509.ExtensionNotFound:
+        return
+
+
+def cert_alternative(cert):
+    try:
+        ext = cert.extensions.get_extension_for_oid(
+            ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+        return ', '.join(v.value for v in ext.value)
+    except x509.ExtensionNotFound:
+        return
+
+
+def cert_subject_keyid(cert):
+    try:
+        ext = cert.extensions.get_extension_for_oid(
+            ExtensionOID.SUBJECT_KEY_IDENTIFIER)
+        return binascii.b2a_hex(ext.value.digest)\
+                       .upper().decode('utf-8')
+    except x509.ExtensionNotFound:
+        return
+
+
+def cert_auth_keyid(cert):
+    try:
+        ext = cert.extensions.get_extension_for_oid(
+            ExtensionOID.AUTHORITY_KEY_IDENTIFIER)
+        return binascii.b2a_hex(ext.value.key_identifier)\
+                       .upper().decode('utf-8')
+    except x509.ExtensionNotFound:
+        return
+
+
+def to_pkcs12(bkey, bcert, bcacerts, passphrase=None):
     pkcs12 = crypto.PKCS12()
     pkcs12.set_certificate(
-        crypto.load_certificate(crypto.FILETYPE_PEM, strcert))
-    if strkey:
+        crypto.load_certificate(crypto.FILETYPE_PEM, bcert))
+    if bkey:
         pkcs12.set_privatekey(
-            crypto.load_privatekey(crypto.FILETYPE_PEM, strkey))
-    if str_ca_certs:
+            crypto.load_privatekey(crypto.FILETYPE_PEM, bkey))
+    if bcacerts:
         pkcs12.set_ca_certificates(
             [crypto.load_certificate(crypto.FILETYPE_PEM, c)
-             for c in str_ca_certs])
+             for c in bcacerts])
     return pkcs12.export(passphrase=passphrase)
-
-
-# def main():
-    # with open('/tmp/keys/rsa.key', 'rb') as fi:
-    #     pkey = load_privatekey(fi.read())
-    # data = {
-    #     'cn': '*.shell.org',
-    #     'country': 'CN',
-    #     'province': 'SH',
-    #     'city': 'SH',
-    #     'org': 'home',
-    #     'ou': 'home',
-    #     'email': 'shell@shell.org',
-    #     'alternative': '*.shell1.org, *.baidu.com',
-    #     'usage': 'serverAuth',
-    #     'ca': True,
-    # }
-    # csr = generate_req(pkey, data)
-    # strcsr = dump_certificate_request(csr)
-    # print(strcsr)
-    # cert = selfsign_req(csr, pkey)
-    # strcert = dump_certificate(cert)
-    # print(strcert)
-
-    # with open('/tmp/keys/ca.crt', 'rb') as fi:
-    #     cert = crypto.load_certificate(crypto.FILETYPE_PEM, fi.read())
-    # print(generate_subj_str(cert.get_subject()))
-
-    # with open('/tmp/keys/test.crt', 'rb') as fi:
-    #     certchain = fi.read()
-    # strpems = split_pems(certchain)
-    # with open('/tmp/keys/test.key', 'rb') as fi:
-    #     strkey = fi.read()
-    # verify(strpems, strkey)
-
-    # cert = x509.load_pem_x509_certificate(strpems[0], default_backend())
-
-    # print(gen_sub_name_str(cert.subject))
-    # print(cert.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)[0].value)
-
-    # ext = cert.extensions.get_extension_for_oid(
-    #     x509.oid.ExtensionOID.SUBJECT_KEY_IDENTIFIER)
-    # print(binascii.b2a_hex(ext.value.digest).upper())
-    # ext = cert.extensions.get_extension_for_oid(
-    #     x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
-    # print(ext.value.get_values_for_type(x509.DNSName))
-    # ext = cert.extensions.get_extension_for_oid(
-    #     x509.oid.ExtensionOID.AUTHORITY_KEY_IDENTIFIER)
-    # print(binascii.b2a_hex(ext.value.key_identifier).upper())
-
-# def main():
-#     csr = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
-#         # Provide various details about who we are.
-#         x509.NameAttribute(NameOID.COUNTRY_NAME, u"US"),
-#         x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, u"CA"),
-#         x509.NameAttribute(NameOID.LOCALITY_NAME, u"San Francisco"),
-#         x509.NameAttribute(NameOID.ORGANIZATION_NAME, u"My Company"),
-#         x509.NameAttribute(NameOID.COMMON_NAME, u"mysite.com"),
-#     ])).add_extension(
-#         x509.SubjectAlternativeName([
-#             x509.DNSName(u"mysite.com"),
-#             x509.DNSName(u"www.mysite.com"),
-#             x509.DNSName(u"subdomain.mysite.com"),
-#         ]),
-#         critical=False,
-#     ).sign(key, hashes.SHA256(), default_backend())
-#     with open("path/to/csr.pem", "wb") as f:
-#         f.write(csr.public_bytes(serialization.Encoding.PEM))
-
-
-# def main():
-#     with open('/tmp/keys/a.crt', 'rb') as fi:
-#         cert = load_certificate(fi.read())
-#     print(cert_usage(cert))
-
-
-def main():
-    with open('/tmp/keys/rsa.key', 'rb') as fi:
-        pkey = load_privatekey(fi.read())
-    print(parse_privatekey(pkey))
-
-    with open('/tmp/keys/ecc.key', 'rb') as fi:
-        pkey = load_privatekey(fi.read())
-    print(parse_privatekey(pkey))
-
-
-if __name__ == '__main__':
-    main()
