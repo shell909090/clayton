@@ -42,7 +42,7 @@ urlpatterns = [
     url(r'^br/(?P<dgst>[0-9A-F]{16})',
         views.build_req, name='build_req'),
 
-    url(r'^c/(?P<dgst>[0-9A-F]{0,16})',
+    url(r'^/(?P<dgst>[0-9A-F]{0,16})',
         views.ListCertView.as_view(), name='list_cert'),
     url(r'^dc/(?P<dgst>[0-9A-F]{16})',
         views.detail_cert, name='detail_cert'),
