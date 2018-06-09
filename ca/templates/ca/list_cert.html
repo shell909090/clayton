@@ -5,23 +5,56 @@
 {% block title %}list cert{% endblock %}
 
 {% block body %}
+
 {% render_table table %}
+
+<div id="import_pem" class="modal fade" role="dialog">
+  <form class="form-horizontal" action="{% url 'ca:import_pem' %}" method="POST" enctype="multipart/form-data">
+    <div class="modal-dialog">
+      <div class="modal-content">
+	<div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+          <h4 class="modal-title">import pem</h4>
+	</div>
+	<div class="modal-body">
+	  {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
+	  {% csrf_token %}
+	  {% bootstrap_form formup layout="horizontal" %}
+	</div>
+	<div class="modal-footer">
+	  <button type="submit" class="btn btn-primary">Submit</button>
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+	</div>
+      </div>
+    </div>
+  </form>
+</div>
+
 {% endblock %}
 
-{% block nav_dropdown %}
+{% block nav_left %}
 {% if filter %}
 <form action="" method="get" class="navbar-form navbar-left form-inline">
-  {% bootstrap_form filter.form layout='inline' %}
-  {% bootstrap_button 'filter' %}
+  <div class="input-group">
+    {% bootstrap_form filter.form layout='inline' %}
+    <div class="input-group-btn">
+      <button class="btn btn-default" type="submit">
+        <i class="glyphicon glyphicon-search"></i>
+      </button>
+    </div>
+  </div>
 </form>
 {% endif %}
+{% endblock %}
+
+{% block nav_right %}
 <li class="dropdown">
   <a class="dropdown-toggle" data-toggle="dropdown" href="#">
     Ops
     <span class="caret"></span>
   </a>
   <ul class="dropdown-menu">
-    <li><a href="{% url 'ca:import_pem' %}">import pem</a></li>
+    <li><a data-toggle="modal" data-target="#import_pem">import pem</a></li>
   </ul>
 </li>
 {% endblock %}

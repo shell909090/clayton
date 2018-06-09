@@ -1,5 +1,6 @@
 {% extends 'ca/base.html' %}
 {% load render_table from django_tables2 %}
+{% load bootstrap3 %}
 
 {% block title %}key detail{% endblock %}
 
@@ -78,7 +79,7 @@
 {% render_table tab %}
 {% endblock %}
 
-{% block nav_dropdown %}
+{% block nav_right %}
 <li class="dropdown">
   <a class="dropdown-toggle" data-toggle="dropdown" href="#">
     Ops

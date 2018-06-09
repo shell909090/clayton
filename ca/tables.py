@@ -14,6 +14,7 @@ from .models import PubKey, Cert
 class PubKeyTable(tables.Table):
     dgst = tables.TemplateColumn(
         '<a href="{% url \'ca:detail_key\' record.dgst %}">{{record.dgst}}</a>'
+        '  <span class="badge">{{record.cert_count}}</span>'
     )
     ops = tables.TemplateColumn(
         '<a href="{% url \'ca:remove_key\' record.dgst %}">remove</a>'
@@ -21,7 +22,7 @@ class PubKeyTable(tables.Table):
 
     class Meta:
         model = PubKey
-        fields = ('dgst', 'keytype', 'size', 'cert_count')
+        fields = ('dgst', 'keytype', 'size')
         template_name = 'django_tables2/bootstrap.html'
         attrs = {'class': 'table-striped table-condensed table-responsive'}
 
@@ -30,6 +31,7 @@ class CertTable(tables.Table):
     dgst = tables.TemplateColumn(
         '<a href="{% url \'ca:detail_cert\' record.dgst %}">'
         '{{record.dgst}}</a>'
+        '  <span class="badge">{{record.signed_count}}</span>'
     )
     issuer = tables.TemplateColumn(
         '{%if record.issuer%}'

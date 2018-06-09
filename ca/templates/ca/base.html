@@ -29,8 +29,10 @@
 	  <li><a href="{% url 'ca:list_key' %}">Keys</a></li>
 	  <li><a href="{% url 'ca:list_cert' '' %}">Certs</a></li>
 	</ul>
+	{% block nav_left %}
+	{% endblock %}
 	<ul class="nav navbar-nav navbar-right">
-	  {% block nav_dropdown %}
+	  {% block nav_right %}
 	  {% endblock %}
 	</ul>
       </div>
@@ -42,6 +44,8 @@
       {%block body%}
       {%endblock%}
     </div>
-
+    
+    {% block script %}
+    {% endblock %}
   </body>
 </html>

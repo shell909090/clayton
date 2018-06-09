@@ -88,36 +88,35 @@ def test_selfsign():
 def test_cert_parse(pkey, bcert):
     print('cert parse')
     cert = crypt.load_certificate(bcert)
-    assert(crypt.cert_cn(cert) == X509DATA['cn'])
-    assert(crypt.cert_ca(cert)[0] == X509DATA['ca'])
-    assert(crypt.cert_extusage(cert) == X509DATA['usage'])
-    assert(crypt.cert_alternative(cert) == X509DATA['alternative'])
-    assert(crypt.cert_subject_keyid(cert).decode('utf-8')[-16:]
-           == crypt.get_keyid(pkey))
-    assert(crypt.cert_auth_keyid(cert).decode('utf-8')[-16:]
-           == crypt.get_keyid(pkey))
+    reader = crypt.CertReader(cert)
 
-    print(crypt.get_cert_dgst(cert))
-    print(hex(cert.serial_number)[2:].strip('L').upper())
+    assert(reader.cn == X509DATA['cn'])
+    assert(reader.ca == X509DATA['ca'])
+    assert(reader.extusage == X509DATA['usage'])
+    assert(reader.alternative == X509DATA['alternative'])
+    assert(reader.subkeyid[-16:] == crypt.get_keyid(pkey))
+    assert(reader.authkeyid[-16:] == crypt.get_keyid(pkey))
+
+    print(reader.dgst)
+    print(reader.sn)
 
 
 def test_csr(pkey, bcsr):
     print('csr parse')
     csr = crypt.load_certificate_request(bcsr)
-    assert(crypt.cert_cn(csr) == X509DATA['cn'])
-    assert(crypt.cert_ca(csr)[0] == X509DATA['ca'])
-    assert(crypt.cert_extusage(csr) == X509DATA['usage'])
-    assert(crypt.cert_alternative(csr) == X509DATA['alternative'])
+    reader = crypt.CertReader(csr)
+    assert(reader.cn == X509DATA['cn'])
+    assert(reader.ca == X509DATA['ca'])
+    assert(reader.extusage == X509DATA['usage'])
+    assert(reader.alternative == X509DATA['alternative'])
 
 
 def main():
     # test_key()
     # test_sign()
     pkey, bcsr, bcert = test_selfsign()
-    # test_cert_parse(pkey, bcert)
-    # test_csr(pkey, bcsr)
-    reader = crypt.CSRReader(crypt.load_certificate_request(bcsr))
-    print(list(reader.extensions()))
+    test_cert_parse(pkey, bcert)
+    test_csr(pkey, bcsr)
 
 
 if __name__ == '__main__':

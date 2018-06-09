@@ -5,11 +5,14 @@
 
 {% block body %}
 {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
-<form action="" method="POST">
+<form class="form-horizontal" action="" method="POST">
   {% csrf_token %}
-  {% bootstrap_form form %}
-  {% buttons %}
-  <button type="submit" class="btn btn-primary">Submit</button>
-  {% endbuttons %}
+  {% bootstrap_form form layout="horizontal" %}
+  <div class="form-group">
+    <label class="col-md-3 control-label" for="id_submit"></label>
+    <div class="col-md-9">
+      <button type="submit" class="btn btn-primary">Submit</button>
+    </div>
+  </div>
 </form>
 {% endblock %}

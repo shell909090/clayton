@@ -63,14 +63,11 @@ class ReqForm(forms.Form):
     org = forms.CharField(max_length=30, required=False)
     email = forms.CharField(max_length=50, required=False)
     ou = forms.CharField(max_length=30, required=False)
-    alternative = forms.CharField(max_length=200, required=False)
+    alternative = forms.CharField(max_length=200, required=False,
+                                  widget=forms.Textarea)
     usage = forms.ChoiceField(choices=EXT_USAGE_CHOICES, required=False)
     ca = forms.BooleanField(required=False)
     selfsign = forms.BooleanField(required=False)
-
-
-class SignForm(forms.Form):
-    req = forms.FileField()
 
 
 class SignConfirmForm(forms.Form):

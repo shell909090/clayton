@@ -8,9 +8,6 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.http import HttpResponse, HttpResponseRedirect
 
-from django_filters.views import FilterView
-from django_tables2.views import SingleTableMixin
-
 from cryptography import exceptions
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
@@ -19,15 +16,26 @@ from .models import PubKey, Cert
 from . import forms as caforms
 from . import tables, filters
 
+# FIXME: is it possible that csr caused XSS?
 
 # key
 
 
-class ListKeyView(SingleTableMixin, FilterView):
-    table_class = tables.PubKeyTable
-    model = PubKey
-    template_name = 'ca/list_key.html'
-    filterset_class = filters.PubKeyFilter
+def list_key(request):
+    okeys = PubKey.objects.all()
+    f = filters.PubKeyFilter(request.GET, queryset=okeys)
+    table = tables.PubKeyTable(f.qs, request=request)
+    formrsa = caforms.BuildRSAForm()
+    formec = caforms.BuildECForm()
+    formup = caforms.UploadForm()
+    p = {
+        'table': table,
+        'filter': f,
+        'formrsa': formrsa,
+        'formec': formec,
+        'formup': formup,
+    }
+    return render(request, 'ca/list_key.html', p)
 
 
 def detail_key(request, dgst):
@@ -53,13 +61,16 @@ def remove_key(request, dgst):
 
 def build_rsa(request):
     if request.method != 'POST':
-        form = caforms.BuildRSAForm()
-        p = {'title': 'build rsa', 'form': form}
-        return render(request, 'ca/post.html', p)
+        # form = caforms.BuildRSAForm()
+        # p = {'title': 'build rsa', 'form': form}
+        # return render(request, 'ca/post.html', p)
+        return HttpResponseRedirect(reverse('ca:list_key'))
     form = caforms.BuildRSAForm(request.POST)
     if not form.is_valid():
-        p = {'title': 'build rsa', 'form': form}
-        return render(request, 'ca/post.html', p)
+        # p = {'title': 'build rsa', 'form': form}
+        # return render(request, 'ca/post.html', p)
+        # FIXME: msg
+        return HttpResponseRedirect(reverse('ca:list_key'))
     size = form.cleaned_data['size']
     pkey = crypt.generate_rsa(size)
     bkey = crypt.dump_privatekey(pkey)
@@ -71,13 +82,15 @@ def build_rsa(request):
 
 def build_ec(request):
     if request.method != 'POST':
-        form = caforms.BuildECForm()
-        p = {'title': 'build ec', 'form': form}
-        return render(request, 'ca/post.html', p)
+        # form = caforms.BuildECForm()
+        # p = {'title': 'build ec', 'form': form}
+        # return render(request, 'ca/post.html', p)
+        return HttpResponseRedirect(reverse('ca:list_key'))
     form = caforms.BuildECForm(request.POST)
     if not form.is_valid():
-        p = {'title': 'build ec', 'form': form}
-        return render(request, 'ca/post.html', p)
+        # p = {'title': 'build ec', 'form': form}
+        # return render(request, 'ca/post.html', p)
+        return HttpResponseRedirect(reverse('ca:list_key'))
     curve = form.cleaned_data['curve']
     pkey = crypt.generate_ec(curve)
     size = pkey.public_key().public_numbers().curve.key_size
@@ -189,14 +202,15 @@ def imp_key(bkey):
 
 def import_key(request):
     if request.method != 'POST':
-        form = caforms.UploadForm()
-        p = {'title': 'import key', 'form': form}
-        return render(request, 'ca/post_file.html', p)
+        # form = caforms.UploadForm()
+        # p = {'title': 'import key', 'form': form}
+        # return render(request, 'ca/post_file.html', p)
+        return HttpResponseRedirect(reverse('ca:list_key'))
     form = caforms.UploadForm(request.POST, request.FILES)
     if not form.is_valid():
-        p = {'title': 'import key', 'form': form}
-        return render(request, 'ca/post_file.html', p)
-
+        # p = {'title': 'import key', 'form': form}
+        # return render(request, 'ca/post_file.html', p)
+        return HttpResponseRedirect(reverse('ca:list_key'))
     imp_key(form.cleaned_data['upload'].read())
     return HttpResponseRedirect(reverse('ca:list_key'))
 
@@ -258,79 +272,90 @@ def build_req(request, dgst):
 # cert
 
 
-# def list_cert(request, dgst):
-#     q = Cert.objects
-#     if dgst:
-#         q = q.filter(dgst=dgst)
-#     tab = tables.CertTable(q.all(), request=request)
-#     return render(request, 'ca/list_cert.html', {'tab': tab})
-
-
-class ListCertView(SingleTableMixin, FilterView):
-    table_class = tables.CertTable
-    model = Cert
-    template_name = 'ca/list_cert.html'
-    filterset_class = filters.CertFilter
+def list_cert(request, dgst):
+    q = Cert.objects
+    if dgst:
+        q = q.filter(dgst=dgst)
+    f = filters.CertFilter(request.GET, queryset=q.all())
+    table = tables.CertTable(f.qs, request=request)
+    formup = caforms.UploadForm()
+    p = {
+        'table': table,
+        'filter': f,
+        'formup': formup,
+    }
+    return render(request, 'ca/list_cert.html', p)
 
 
 def detail_cert(request, dgst):
     obj = Cert.objects.get(dgst=dgst)
     cert = crypt.load_certificate(obj.dat)
+    reader = crypt.CertReader(cert)
     certs = Cert.objects.filter(issuer=obj).all()
-    tab = tables.CertTable(certs, request=request)
-    # TODO: display chain
+    table = tables.CertTable(certs, request=request)
+    formup = caforms.UploadForm()
+
+    def getchain():
+        c = obj
+        while c:
+            yield c
+            c = c.issuer
+    chain = list(reversed(list(getchain())))
+
     p = {
         'obj': obj,
-        'cert': cert,
-        'ca': crypt.cert_ca(cert)[0],
-        'authkeyid': crypt.cert_auth_keyid(cert),
-        'extusage': crypt.cert_extusage(cert),
-        'usage': crypt.cert_usage(cert),
-        'tab': tab,
+        'reader': reader,
+        'chain': chain,
+        'table': table,
+        'formup': formup,
     }
     return render(request, 'ca/detail_cert.html', p)
 
 
 def imp_cert(bcert):
     cert = crypt.load_certificate(bcert)
-    dgst = crypt.get_cert_dgst(cert)
+    reader = crypt.CertReader(cert)
+    dgst = reader.dgst
     q = Cert.objects.filter(dgst=dgst)
     if q.count() != 0:
         ocert = q.get()
         return ocert
 
     issuer = None
-    q = Cert.objects.filter(keyid=crypt.cert_auth_keyid(cert))
+    q = Cert.objects.filter(keyid=reader.authkeyid)
     if q.count() != 0:
         issuer = q.get()
 
     ocert = Cert(
-        dgst=dgst,
-        status=0,
-        sn=hex(cert.serial_number)[2:].strip('L').upper(),
-        sub=crypt.gen_sub_name_str(cert.subject),
-        cn=crypt.cert_cn(cert),
+        dgst=dgst, status=0,
+        sn=reader.sn,
+        sub=reader.subject,
+        cn=reader.cn,
         notbefore=cert.not_valid_before,
         notafter=cert.not_valid_after,
         issuer=issuer,
-        ca=crypt.cert_ca(cert)[0],
-        keyid=crypt.cert_subject_keyid(cert),
-        alternative=crypt.cert_alternative(cert),
+        ca=reader.ca,
+        keyid=reader.subkeyid,
+        alternative=reader.alternative,
         dat=bcert,
-        key_id=crypt.get_keyid(cert))
+        key_id=reader.keyid)
     ocert.save()
     return ocert
 
 
 def import_pem(request):
     if request.method != 'POST':
-        form = caforms.UploadForm()
-        p = {'title': 'import cert', 'form': form}
-        return render(request, 'ca/post_file.html', p)
+        # form = caforms.UploadForm()
+        # p = {'title': 'import cert', 'form': form}
+        # return render(request, 'ca/post_file.html', p)
+        return HttpResponseRedirect(
+            reverse('ca:list_cert', kwargs={'dgst': ''}))
     form = caforms.UploadForm(request.POST, request.FILES)
     if not form.is_valid():
-        p = {'title': 'import cert', 'form': form}
-        return render(request, 'ca/post_file.html', p)
+        # p = {'title': 'import cert', 'form': form}
+        # return render(request, 'ca/post_file.html', p)
+        return HttpResponseRedirect(
+            reverse('ca:list_cert', kwargs={'dgst': ''}))
 
     certchain = form.cleaned_data['upload'].read()
     bcerts = list(crypt.split_pems(certchain))
@@ -381,20 +406,22 @@ def build_cert(request, dgst):
 
 def sign_req(request, dgst):
     if request.method != 'POST':
-        form = caforms.SignForm()
-        p = {'title': 'import cert', 'form': form}
-        return render(request, 'ca/post_file.html', p)
+        # form = caforms.UploadForm()
+        # p = {'title': 'import cert', 'form': form}
+        # return render(request, 'ca/post_file.html', p)
+        return HttpResponseRedirect(
+            reverse('ca:list_cert', kwargs={'dgst': ''}))
 
-    form = caforms.SignForm(request.POST, request.FILES)
+    form = caforms.UploadForm(request.POST, request.FILES)
     if form.is_valid():
-        bcsr = form.cleaned_data['req'].read()
+        bcsr = form.cleaned_data['upload'].read()
         csr = crypt.load_certificate_request(bcsr)
         form = caforms.SignConfirmForm({
             'csr': bcsr.decode('utf-8'), 'days': '3650'})
-        p = {'obj': crypt.CSRReader(csr), 'form': form}
+        p = {'obj': crypt.CertReader(csr), 'form': form}
         return render(request, 'ca/sign_confirm.html', p)
 
-    form = caforms.SignConfirmForm(request.POST, request.FILES)
+    form = caforms.SignConfirmForm(request.POST)
     if not form.is_valid():
         p = {'title': 'import cert', 'form': form}
         return render(request, 'ca/post_file.html', p)

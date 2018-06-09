@@ -156,10 +156,6 @@ def get_cert_dgst(cert):
     return cert_fingerprint(cert)[-16:].decode('utf-8')
 
 
-# def generate_subj_str(sub):
-#     return ', '.join(['%s = %s' % i for i in sub.get_components()])
-
-
 def gen_sub_name_str(name, delimiter=', '):
     return delimiter.join(['%s=%s' % (n.oid._name, n.value)
                            for n in name if n.oid._name != 'Unknown OID'])
@@ -175,6 +171,11 @@ NAME_MAPPING = (
     ('email', NameOID.EMAIL_ADDRESS),
 )
 
+KEY_USAGE_NAMES = [
+    'digital_signature', 'content_commitment', 'key_encipherment',
+    'data_encipherment', 'key_agreement', 'key_cert_sign',
+    'crl_sign', 'encipher_only', 'decipher_only']
+
 
 EXTENDED_KEY_USAGE_MAPPING = {
     u._name: u
@@ -185,12 +186,6 @@ EXTENDED_KEY_USAGE_MAPPING = {
               ExtendedKeyUsageOID.TIME_STAMPING,
               ExtendedKeyUsageOID.OCSP_SIGNING]
 }
-
-
-KEY_USAGE_NAMES = [
-    'digital_signature', 'content_commitment', 'key_encipherment',
-    'data_encipherment', 'key_agreement', 'key_cert_sign',
-    'crl_sign', 'encipher_only', 'decipher_only']
 
 
 def generate_req(pkey, data):
@@ -211,10 +206,8 @@ def generate_req(pkey, data):
         csr = csr.add_extension(
             x509.SubjectAlternativeName(alternative), critical=False)
     if data.get('usage'):
-        csr = csr.add_extension(
-            x509.ExtendedKeyUsage([
-                EXTENDED_KEY_USAGE_MAPPING[data['usage']], ]),
-            critical=False)
+        usage = [EXTENDED_KEY_USAGE_MAPPING[data['usage']], ]
+        csr = csr.add_extension(x509.ExtendedKeyUsage(usage), critical=False)
     return csr.sign(pkey, hashes.SHA256(), default_backend())
 
 
@@ -224,39 +217,6 @@ def dump_certificate_request(csr):
 
 def load_certificate_request(bcsr):
     return x509.load_pem_x509_csr(bcsr, default_backend())
-
-
-class CSRReader(object):
-
-    def __init__(self, csr):
-        self.csr = csr
-
-    def subject(self):
-        return gen_sub_name_str(self.csr.subject)
-
-    def cn(self):
-        return self.csr.subject.get_attributes_for_oid(
-            NameOID.COMMON_NAME)[0].value
-
-    def get_keyid(self):
-        return get_keyid(self.csr)
-
-    def extensions(self):
-        for ext in self.csr.extensions:
-            if isinstance(ext.value, x509.BasicConstraints):
-                yield ext.oid._name, ext.value.ca
-            elif isinstance(ext.value, x509.KeyUsage):
-                v = ', '.join(['%s=%s' % (n, getattr(ext.value, n))
-                               for n in KEY_USAGE_NAMES[:-2]])
-                yield ext.oid._name, v
-            elif isinstance(ext.value, x509.ExtendedKeyUsage):
-                yield ext.oid._name, ', '.join([u._name for u in ext.value])
-            elif isinstance(ext.value, x509.SubjectAlternativeName):
-                yield ext.oid._name, ', '.join(v.value for v in ext.value)
-            elif isinstance(ext.value, x509.OCSPNoCheck):
-                yield ext.oid._name, True
-            elif isinstance(ext.value, x509.TLSFeature):
-                yield ext.oid._name, True
 
 
 def selfsign_req(csr, issuer_pkey, serial=None, days=3650):
@@ -270,12 +230,11 @@ def selfsign_req(csr, issuer_pkey, serial=None, days=3650):
                .not_valid_before(datetime.utcnow())\
                .not_valid_after(datetime.utcnow()+timedelta(days=10))
     cert._extensions = csr.extensions._extensions
-    cert = cert.add_extension(
-        x509.SubjectKeyIdentifier.from_public_key(csr.public_key()),
-        critical=False)
+    subkeyid = x509.SubjectKeyIdentifier.from_public_key(csr.public_key())
+    cert = cert.add_extension(subkeyid, critical=False)
+    authkeyid = _key_identifier_from_public_key(issuer_pkey.public_key())
     authkeyid = x509.AuthorityKeyIdentifier(
-        _key_identifier_from_public_key(issuer_pkey.public_key()),
-        [x509.DirectoryName(csr.subject), ], serial)
+        authkeyid, [x509.DirectoryName(csr.subject), ], serial)
     cert = cert.add_extension(authkeyid, critical=False)
     return cert.sign(issuer_pkey, hashes.SHA256(), default_backend())
 
@@ -291,12 +250,12 @@ def sign_req(csr, issuer_cert, issuer_pkey, serial=None, days=3650):
                .not_valid_before(datetime.utcnow())\
                .not_valid_after(datetime.utcnow()+timedelta(days=10))
     cert._extensions = csr.extensions._extensions
-    cert = cert.add_extension(
-        x509.SubjectKeyIdentifier.from_public_key(csr.public_key()),
-        critical=False)
+    subkeyid = x509.SubjectKeyIdentifier.from_public_key(csr.public_key())
+    cert = cert.add_extension(subkeyid, critical=False)
+    authkeyid = _key_identifier_from_public_key(issuer_pkey.public_key())
     authkeyid = x509.AuthorityKeyIdentifier(
-        _key_identifier_from_public_key(issuer_pkey.public_key()),
-        [x509.DirectoryName(issuer_cert.subject), ], issuer_cert.serial_number)
+        authkeyid, [x509.DirectoryName(issuer_cert.subject), ],
+        issuer_cert.serial_number)
     cert = cert.add_extension(authkeyid, critical=False)
     return cert.sign(issuer_pkey, hashes.SHA256(), default_backend())
 
@@ -317,70 +276,6 @@ def split_pems(bpems):
     return re_pem.findall(bpems)
 
 
-def cert_cn(cert):
-    return cert.subject.get_attributes_for_oid(
-        NameOID.COMMON_NAME)[0].value
-
-
-def cert_ca(cert):
-    try:
-        ext = cert.extensions.get_extension_for_oid(
-            ExtensionOID.BASIC_CONSTRAINTS)
-        return ext.value.ca, ext.value.path_length
-    except x509.ExtensionNotFound:
-        return False, None
-
-
-def cert_usage(cert):
-    names = ['digital_signature', 'content_commitment',
-             'key_encipherment', 'data_encipherment',
-             'key_agreement', 'key_cert_sign', 'crl_sign']
-    try:
-        ext = cert.extensions.get_extension_for_oid(
-            ExtensionOID.KEY_USAGE)
-        return ', '.join([n for n in names if getattr(ext.value, n)])
-    except x509.ExtensionNotFound:
-        return
-
-
-def cert_extusage(cert):
-    try:
-        ext = cert.extensions.get_extension_for_oid(
-            ExtensionOID. EXTENDED_KEY_USAGE)
-        return ', '.join([u._name for u in ext.value])
-    except x509.ExtensionNotFound:
-        return
-
-
-def cert_alternative(cert):
-    try:
-        ext = cert.extensions.get_extension_for_oid(
-            ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
-        return ', '.join(v.value for v in ext.value)
-    except x509.ExtensionNotFound:
-        return
-
-
-def cert_subject_keyid(cert):
-    try:
-        ext = cert.extensions.get_extension_for_oid(
-            ExtensionOID.SUBJECT_KEY_IDENTIFIER)
-        return binascii.b2a_hex(ext.value.digest)\
-                       .upper().decode('utf-8')
-    except x509.ExtensionNotFound:
-        return
-
-
-def cert_auth_keyid(cert):
-    try:
-        ext = cert.extensions.get_extension_for_oid(
-            ExtensionOID.AUTHORITY_KEY_IDENTIFIER)
-        return binascii.b2a_hex(ext.value.key_identifier)\
-                       .upper().decode('utf-8')
-    except x509.ExtensionNotFound:
-        return
-
-
 def to_pkcs12(bkey, bcert, bcacerts, passphrase=None):
     pkcs12 = crypto.PKCS12()
     pkcs12.set_certificate(
@@ -393,3 +288,75 @@ def to_pkcs12(bkey, bcert, bcacerts, passphrase=None):
             [crypto.load_certificate(crypto.FILETYPE_PEM, c)
              for c in bcacerts])
     return pkcs12.export(passphrase=passphrase)
+
+
+class CertReader(object):
+
+    ATTR_MAPPING = {
+        'ca': ExtensionOID.BASIC_CONSTRAINTS,
+        'usage': ExtensionOID.KEY_USAGE,
+        'extusage': ExtensionOID.EXTENDED_KEY_USAGE,
+        'alternative': ExtensionOID.SUBJECT_ALTERNATIVE_NAME,
+        'subkeyid': ExtensionOID.SUBJECT_KEY_IDENTIFIER,
+        'authkeyid': ExtensionOID.AUTHORITY_KEY_IDENTIFIER,
+    }
+
+    def __init__(self, c):
+        self.c = c
+
+    @property
+    def sn(self):
+        return hex(self.c.serial_number)[2:].strip('L').upper()
+
+    @property
+    def dgst(self):
+        return get_cert_dgst(self.c)
+
+    @property
+    def keyid(self):
+        return get_keyid(self.c)
+
+    @property
+    def subject(self):
+        return gen_sub_name_str(self.c.subject)
+
+    @property
+    def cn(self):
+        return self.c.subject.get_attributes_for_oid(
+            NameOID.COMMON_NAME)[0].value
+
+    def __getattr__(self, name):
+        if name in self.__dict__:
+            return self.__dict__[name]
+        if name in self.ATTR_MAPPING:
+            try:
+                ext = self.c.extensions.get_extension_for_oid(
+                    self.ATTR_MAPPING[name])
+            except x509.extensions.ExtensionNotFound:
+                return
+            return self.read_ext(ext.value)
+        raise AttributeError(name)
+
+    def read_ext(self, v):
+        if isinstance(v, x509.BasicConstraints):
+            return v.ca
+        elif isinstance(v, x509.KeyUsage):
+            return ', '.join(['%s=%s' % (n, getattr(v, n))
+                              for n in KEY_USAGE_NAMES[:-2]])
+        elif isinstance(v, x509.ExtendedKeyUsage):
+            return ', '.join([u._name for u in v])
+        elif isinstance(v, x509.SubjectAlternativeName):
+            return ', '.join(v.value for v in v)
+        elif isinstance(v, x509.SubjectKeyIdentifier):
+            return binascii.b2a_hex(v.digest).upper().decode('utf-8')
+        elif isinstance(v, x509.AuthorityKeyIdentifier):
+            return binascii.b2a_hex(v. key_identifier)\
+                           .upper().decode('utf-8')
+        elif isinstance(v, x509.OCSPNoCheck):
+            return True
+        elif isinstance(v, x509.TLSFeature):
+            return True
+
+    def extensions(self):
+        for ext in self.c.extensions:
+            yield ext.oid._name, self.read_ext(ext.value)

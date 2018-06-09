@@ -53,3 +53,6 @@ class Cert(models.Model):
 
     def __str__(self):
         return self.dgst
+
+    def signed_count(self):
+        return Cert.objects.filter(issuer=self).count()
