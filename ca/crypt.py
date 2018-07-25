@@ -293,7 +293,6 @@ def to_pkcs12(bkey, bcert, bcacerts, passphrase=None):
 class CertReader(object):
 
     ATTR_MAPPING = {
-        'ca': ExtensionOID.BASIC_CONSTRAINTS,
         'usage': ExtensionOID.KEY_USAGE,
         'extusage': ExtensionOID.EXTENDED_KEY_USAGE,
         'alternative': ExtensionOID.SUBJECT_ALTERNATIVE_NAME,
@@ -325,6 +324,15 @@ class CertReader(object):
         return self.c.subject.get_attributes_for_oid(
             NameOID.COMMON_NAME)[0].value
 
+    @property
+    def ca(self):
+        try:
+            ext = self.c.extensions.get_attributes_for_oid(
+                ExtensionOID.BASIC_CONSTRAINTS)
+        except (x509.extensions.ExtensionNotFound, AttributeError):
+            return False
+        return ext.value.ca
+
     def __getattr__(self, name):
         if name in self.__dict__:
             return self.__dict__[name]
@@ -332,7 +340,7 @@ class CertReader(object):
             try:
                 ext = self.c.extensions.get_extension_for_oid(
                     self.ATTR_MAPPING[name])
-            except x509.extensions.ExtensionNotFound:
+            except (x509.extensions.ExtensionNotFound, AttributeError):
                 return
             return self.read_ext(ext.value)
         raise AttributeError(name)
