@@ -327,7 +327,7 @@ class CertReader(object):
     @property
     def ca(self):
         try:
-            ext = self.c.extensions.get_attributes_for_oid(
+            ext = self.c.extensions.get_extension_for_oid(
                 ExtensionOID.BASIC_CONSTRAINTS)
         except (x509.extensions.ExtensionNotFound, AttributeError):
             return False
