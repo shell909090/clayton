@@ -6,8 +6,6 @@
 ## X-URL: 
 
 buildenv:
-	rm -rf pyenv
-	virtualenv -p python3 pyenv
-	pyenv/bin/pip install -r requirements.txt
+	uv sync --locked
 
 ### Makefile ends here

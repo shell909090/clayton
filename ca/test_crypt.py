@@ -12,7 +12,7 @@ from pprint import pprint
 
 from cryptography import exceptions
 
-import crypt
+from . import crypt
 
 
 def test_onekey(pkey):

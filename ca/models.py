@@ -29,7 +29,7 @@ class PubKey(models.Model):
 class Cert(models.Model):
     dgst = models.CharField(max_length=33, primary_key=True)
     status = models.IntegerField()
-    sn = models.CharField(max_length=30)
+    sn = models.CharField(max_length=40)
     sub = models.CharField(max_length=200)
     cn = models.CharField(max_length=100)
     notbefore = models.DateTimeField()

@@ -7,16 +7,14 @@
 @license: BSD-3-clause
 '''
 import re
-import random
 import hashlib
 import binascii
-from datetime import datetime, timedelta
-from OpenSSL import crypto
+from datetime import datetime, timedelta, timezone
 from cryptography import x509
-from cryptography.x509.extensions import _key_identifier_from_public_key
 from cryptography.x509.oid import NameOID, ExtensionOID, ExtendedKeyUsageOID
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.hazmat.primitives.asymmetric import rsa, ec, padding
 from cryptography.hazmat.primitives.serialization import \
     Encoding, PrivateFormat, PublicFormat
@@ -45,12 +43,12 @@ def generate_rsa(bits=2048):
 
 
 def generate_ec(curve):
-    return ec.generate_private_key(CURVE_MAPPING[curve],
+    return ec.generate_private_key(CURVE_MAPPING[curve](),
                                    backend=default_backend())
 
 
 def hexdigest_publickey(pkey):
-    return binascii.b2a_hex(_key_identifier_from_public_key(pkey)).upper()
+    return binascii.b2a_hex(x509.SubjectKeyIdentifier.from_public_key(pkey).digest).upper()
 
 
 def get_keyid(pkey):
@@ -86,16 +84,16 @@ def parse_privatekey(pkey):
         pn = pkey.public_key().public_numbers()
         p = {'type': 'RSAPrivateKey',
              'size': pkey.public_key().key_size,
-             'n': hex(pn.n)[2:-1].upper(),
+             'n': hex(pn.n)[2:].upper(),
              'e': hex(pn.e)[2:].strip('L').upper(),
-             'd': hex(sn.d)[2:-1].upper(),
-             'p': hex(sn.p)[2:-1].upper(),
-             'q': hex(sn.q)[2:-1].upper()}
+             'd': hex(sn.d)[2:].upper(),
+             'p': hex(sn.p)[2:].upper(),
+             'q': hex(sn.q)[2:].upper()}
     elif isinstance(pkey, rsa.RSAPublicKey):
         pn = pkey.public_numbers()
         p = {'type': 'RSAPublicKey',
              'size': pkey.key_size,
-             'n': hex(pn.n)[2:-1].upper(),
+             'n': hex(pn.n)[2:].upper(),
              'e': hex(pn.e)[2:].strip('L').upper()}
     elif isinstance(pkey, ec.EllipticCurvePrivateKey):
         sn = pkey.private_numbers()
@@ -103,16 +101,16 @@ def parse_privatekey(pkey):
         p = {'type': 'ECCPrivateKey',
              'curve': pn.curve.name,
              'size': pn.curve.key_size,
-             'x': hex(pn.x)[2:-1].upper(),
-             'y': hex(pn.y)[2:-1].upper(),
-             'private': hex(sn.private_value).upper()[2:-1].upper()}
+             'x': hex(pn.x)[2:].upper(),
+             'y': hex(pn.y)[2:].upper(),
+             'private': hex(sn.private_value).upper()[2:].upper()}
     elif isinstance(pkey, ec.EllipticCurvePublicKey):
         pn = pkey.public_numbers()
         p = {'type': 'ECCPublicKey',
              'curve': pn.curve.name,
              'size': pn.curve.key_size,
-             'x': hex(pn.x)[2:-1].upper(),
-             'y': hex(pn.y)[2:-1].upper()}
+             'x': hex(pn.x)[2:].upper(),
+             'y': hex(pn.y)[2:].upper()}
     return p
 
 
@@ -195,11 +193,11 @@ def generate_req(pkey, data):
               .subject_name(x509.Name(name))
     if data.get('ca'):
         csr = csr.add_extension(
-            x509.BasicConstraints(True, None), critical=False)
+            x509.BasicConstraints(True, None), critical=True)
         kw = {n: False for n in KEY_USAGE_NAMES}
         kw['key_cert_sign'] = True
         kw['crl_sign'] = True
-        csr = csr.add_extension(x509.KeyUsage(**kw), critical=False)
+        csr = csr.add_extension(x509.KeyUsage(**kw), critical=True)
     if data.get('alternative'):
         alternative = [x509.DNSName(d.strip())
                        for d in data['alternative'].split(',')]
@@ -220,19 +218,20 @@ def load_certificate_request(bcsr):
 
 
 def selfsign_req(csr, issuer_pkey, serial=None, days=3650):
-    if not serial:  # FIXME: 排重
-        serial = random.getrandbits(64)
+    if serial is None:
+        serial = x509.random_serial_number()
     cert = x509.CertificateBuilder()\
                .subject_name(csr.subject)\
                .issuer_name(csr.subject)\
                .public_key(csr.public_key())\
                .serial_number(serial)\
-               .not_valid_before(datetime.utcnow())\
-               .not_valid_after(datetime.utcnow()+timedelta(days=10))
-    cert._extensions = csr.extensions._extensions
+               .not_valid_before(datetime.now(timezone.utc))\
+               .not_valid_after(datetime.now(timezone.utc)+timedelta(days=days))
+    for extension in csr.extensions:
+        cert = cert.add_extension(extension.value, extension.critical)
     subkeyid = x509.SubjectKeyIdentifier.from_public_key(csr.public_key())
     cert = cert.add_extension(subkeyid, critical=False)
-    authkeyid = _key_identifier_from_public_key(issuer_pkey.public_key())
+    authkeyid = x509.SubjectKeyIdentifier.from_public_key(issuer_pkey.public_key()).digest
     authkeyid = x509.AuthorityKeyIdentifier(
         authkeyid, [x509.DirectoryName(csr.subject), ], serial)
     cert = cert.add_extension(authkeyid, critical=False)
@@ -240,19 +239,20 @@ def selfsign_req(csr, issuer_pkey, serial=None, days=3650):
 
 
 def sign_req(csr, issuer_cert, issuer_pkey, serial=None, days=3650):
-    if not serial:  # FIXME: 排重
-        serial = random.getrandbits(64)
+    if serial is None:
+        serial = x509.random_serial_number()
     cert = x509.CertificateBuilder()\
                .subject_name(csr.subject)\
                .issuer_name(issuer_cert.subject)\
                .public_key(csr.public_key())\
                .serial_number(serial)\
-               .not_valid_before(datetime.utcnow())\
-               .not_valid_after(datetime.utcnow()+timedelta(days=10))
-    cert._extensions = csr.extensions._extensions
+               .not_valid_before(datetime.now(timezone.utc))\
+               .not_valid_after(datetime.now(timezone.utc)+timedelta(days=days))
+    for extension in csr.extensions:
+        cert = cert.add_extension(extension.value, extension.critical)
     subkeyid = x509.SubjectKeyIdentifier.from_public_key(csr.public_key())
     cert = cert.add_extension(subkeyid, critical=False)
-    authkeyid = _key_identifier_from_public_key(issuer_pkey.public_key())
+    authkeyid = x509.SubjectKeyIdentifier.from_public_key(issuer_pkey.public_key()).digest
     authkeyid = x509.AuthorityKeyIdentifier(
         authkeyid, [x509.DirectoryName(issuer_cert.subject), ],
         issuer_cert.serial_number)
@@ -277,17 +277,17 @@ def split_pems(bpems):
 
 
 def to_pkcs12(bkey, bcert, bcacerts, passphrase=None):
-    pkcs12 = crypto.PKCS12()
-    pkcs12.set_certificate(
-        crypto.load_certificate(crypto.FILETYPE_PEM, bcert))
-    if bkey:
-        pkcs12.set_privatekey(
-            crypto.load_privatekey(crypto.FILETYPE_PEM, bkey))
-    if bcacerts:
-        pkcs12.set_ca_certificates(
-            [crypto.load_certificate(crypto.FILETYPE_PEM, c)
-             for c in bcacerts])
-    return pkcs12.export(passphrase=passphrase)
+    if isinstance(passphrase, str):
+        passphrase = passphrase.encode('utf-8')
+    encryption = (serialization.BestAvailableEncryption(passphrase)
+                  if passphrase else serialization.NoEncryption())
+    return pkcs12.serialize_key_and_certificates(
+        name=None,
+        key=load_privatekey(bkey) if bkey else None,
+        cert=load_certificate(bcert),
+        cas=[load_certificate(c) for c in bcacerts] or None,
+        encryption_algorithm=encryption)
+
 
 
 class CertReader(object):

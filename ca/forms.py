@@ -16,7 +16,7 @@ from . import crypt
 
 
 class BuildRSAForm(forms.Form):
-    size = forms.IntegerField(initial=2048)
+    size = forms.IntegerField(initial=2048, min_value=2048, max_value=8192)
 
 
 class BuildECForm(forms.Form):
@@ -57,7 +57,7 @@ EXT_USAGE_CHOICES = (
 
 class ReqForm(forms.Form):
     cn = forms.CharField(max_length=50)
-    country = forms.CharField(max_length=3, required=False)
+    country = forms.CharField(min_length=2, max_length=2, required=False)
     province = forms.CharField(max_length=10, required=False)
     city = forms.CharField(max_length=30, required=False)
     org = forms.CharField(max_length=30, required=False)
@@ -73,4 +73,4 @@ class ReqForm(forms.Form):
 class SignConfirmForm(forms.Form):
     csr = forms.CharField(max_length=100000,
                           widget=forms.HiddenInput())
-    days = forms.CharField(max_length=5, required=False)
+    days = forms.IntegerField(min_value=1, max_value=36500, required=False)

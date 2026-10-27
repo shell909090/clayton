@@ -204,12 +204,12 @@ def import_key(request):
     if request.method != 'POST':
         # form = caforms.UploadForm()
         # p = {'title': 'import key', 'form': form}
-        # return render(request, 'ca/post_file.html', p)
+        # return render(request, 'ca/post.html', p)
         return HttpResponseRedirect(reverse('ca:list_key'))
     form = caforms.UploadForm(request.POST, request.FILES)
     if not form.is_valid():
         # p = {'title': 'import key', 'form': form}
-        # return render(request, 'ca/post_file.html', p)
+        # return render(request, 'ca/post.html', p)
         return HttpResponseRedirect(reverse('ca:list_key'))
     imp_key(form.cleaned_data['upload'].read())
     return HttpResponseRedirect(reverse('ca:list_key'))
@@ -331,11 +331,12 @@ def imp_cert(bcert):
         sn=reader.sn,
         sub=reader.subject,
         cn=reader.cn,
-        notbefore=cert.not_valid_before,
-        notafter=cert.not_valid_after,
+        notbefore=cert.not_valid_before_utc,
+        notafter=cert.not_valid_after_utc,
         issuer=issuer,
         ca=reader.ca,
         keyid=reader.subkeyid,
+        authkeyid=reader.authkeyid or "",
         alternative=reader.alternative,
         dat=bcert,
         key_id=reader.keyid)
@@ -347,13 +348,13 @@ def import_pem(request):
     if request.method != 'POST':
         # form = caforms.UploadForm()
         # p = {'title': 'import cert', 'form': form}
-        # return render(request, 'ca/post_file.html', p)
+        # return render(request, 'ca/post.html', p)
         return HttpResponseRedirect(
             reverse('ca:list_cert', kwargs={'dgst': ''}))
     form = caforms.UploadForm(request.POST, request.FILES)
     if not form.is_valid():
         # p = {'title': 'import cert', 'form': form}
-        # return render(request, 'ca/post_file.html', p)
+        # return render(request, 'ca/post.html', p)
         return HttpResponseRedirect(
             reverse('ca:list_cert', kwargs={'dgst': ''}))
 
@@ -408,7 +409,7 @@ def sign_req(request, dgst):
     if request.method != 'POST':
         # form = caforms.UploadForm()
         # p = {'title': 'import cert', 'form': form}
-        # return render(request, 'ca/post_file.html', p)
+        # return render(request, 'ca/post.html', p)
         return HttpResponseRedirect(
             reverse('ca:list_cert', kwargs={'dgst': ''}))
 
@@ -424,7 +425,7 @@ def sign_req(request, dgst):
     form = caforms.SignConfirmForm(request.POST)
     if not form.is_valid():
         p = {'title': 'import cert', 'form': form}
-        return render(request, 'ca/post_file.html', p)
+        return render(request, 'ca/post.html', p)
 
     issuer_ocert = Cert.objects.get(dgst=dgst)
     issuer_cert = crypt.load_certificate(issuer_ocert.dat)
@@ -433,7 +434,7 @@ def sign_req(request, dgst):
     bcsr = form.cleaned_data['csr'].encode('utf-8')
     csr = crypt.load_certificate_request(bcsr)
     cert = crypt.sign_req(csr, issuer_cert, issuer_pkey,
-                          days=int(form.cleaned_data['days'] or '3650'))
+                          days=form.cleaned_data['days'] or 3650)
     bcert = crypt.dump_certificate(cert)
     ocert = imp_cert(bcert)
     return HttpResponseRedirect(

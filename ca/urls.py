@@ -6,7 +6,7 @@
 @copyright: 2018, Shell.Xu <shell909090@gmail.com>
 @license: BSD-3-clause
 '''
-from django.conf.urls import url
+from django.urls import re_path as url
 
 from . import views
 
